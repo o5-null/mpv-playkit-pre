@@ -15,12 +15,16 @@ K7sfunc fork）里：`src/k7sfunc/mod_playkit.py` 提供一个**有名字、会�
 
 ```
 mpv-playkit-pre-<ver>-windows-x64/
-├─ python314._pth                        # python314.zip / . / vs-scripts / import site
+├─ python315._pth                        # python315.zip / . / Lib\site-packages / import site
+├─ python.exe / python3.dll              # 官方嵌入式 CPython
+├─ vsscript.dll / libvapoursynth*.dll    # 官方 VapourSynth 运行时（包根副本）
+├─ Lib/site-packages/vapoursynth/        # wheel 本体 + vs-plugins/vs-scripts
 ├─ Lib/site-packages/k7sfunc/
 │   ├─ __init__.py                       # 1.9.0+pre.N，导出上游全部函数 + PLAYKIT_*
 │   ├─ mod_playkit.py                    # ★ 预设层
 │   └─ mod_scale/mod_memc/mod_dbdn/...   # 上游算法
 └─ portable_config/
+    ├─ scripts/k7f_vs.lua                # 写入 VSScript 的 Python 定位配置
     ├─ scripts/k7f_playkit.lua           # ★ mpv 前端
     └─ script-opts/k7f_playkit.conf      # 默认参数
 ```
@@ -149,3 +153,6 @@ vs-plugins/librife_windows_x86-64.dll
 - 确认 K7sfunc 与扩展都在：
   `./python -c "import k7sfunc; print(k7sfunc.__version__, hasattr(k7sfunc,'PLAYKIT_RUN'))"`；
 - 确认 VapourSynth 链路：`./python -c "import vapoursynth as vs; print(vs.core.version())"`。
+- mpv 里报 `Failed to initialize VapourSynth VSScript library` 时，先看
+  `%APPDATA%\vapoursynth\vapoursynth.toml` 是否有一行指向**本包**的 `vsscript.dll`（小写全路径）。
+  `k7f_vs.lua` 首次运行会自动写；包被挪到新位置后它会重写，同时清理指向已消失目录的旧行。
