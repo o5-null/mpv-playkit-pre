@@ -46,6 +46,26 @@ class BuildError(RuntimeError):
     """构建失败（消息直接面向用户）。"""
 
 
+def _ensure_utf8_stdout() -> None:
+    """把标准输出切到 UTF-8。
+
+    CI 用的 Windows runner 默认 locale 是 en-US，stdout 编码为 cp1252，
+    直接 print 中文日志会抛 UnicodeEncodeError。本地中文系统不受影响，
+    所以这里只在可重配置时静默切换。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
+_ensure_utf8_stdout()
+
+
 def log(message: str) -> None:
     print(f"[build] {message}", flush=True)
 

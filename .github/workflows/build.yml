@@ -16,6 +16,10 @@ jobs:
   windows-x64:
     name: windows-x64
     runs-on: windows-latest
+    env:
+      # runner 默认 locale 是 en-US，强制 Python 用 UTF-8，日志里的中文才不会炸
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
