@@ -65,7 +65,7 @@ jobs:
         run: python -m build verify --asset "$(ls dist/out/*.zip | head -1)"
 
       - name: 上传产物
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: mpv-playkit-pre-windows-x64
           path: dist/out/*
