@@ -109,6 +109,26 @@
   "把 VS 钉回 R79"。`pack.py` 的 `FORBIDDEN_REL` 会阻止补丁包覆盖 `mpv.exe`、`python.exe`、
   `portable_config/`、`k7sfunc/` 等基础包关键路径。
 
+## 12. TRT-RTX 补丁包的依赖仍取 AliceTeaParty 的 API4 轮子（2026-11-21）
+
+- **决策**：`tensorrt-rtx` 包继续钉 `AliceTeaParty/vapoursynth-api4-wheels` 的两个轮子
+  （`vs-trt-rtx-cu129` + `vs-tensorrt-rtx-cu129`，版本 `16.2.2+alice.1`，成对更新），
+  暂不自建 API 4 插件构建流水线，也不再找"现成的 API 4 二进制"。
+- **原因**：`AmusementClub/vs-mlrt` 上游拒绝迁 API 4（issue #171），社区里当前只有这一个来源
+  提供可直接钉住的 Windows 二进制。逐一核过其他候选：VapourSynth 核心贡献者 Ichunjo 的
+  `Ichunjo/vs-mlrt`（tag `v17.0`/`v17.1`，源码确已全量 API 4，用 `mapGetIntSaturated` 一类新接口）
+  **剥离了 `CMakeLists.txt`、`config.h.in`、`trtexec/`**，也没有 CI 与 release，取用它等于自己重建
+  构建系统；`efschu/vstrt-rtx` 仍是 API 3（`propGetInt`）；`RyougiKukoc/vs-mlrt-api4` 已标为
+  deprecated 并指向 Alice。换句话说，现在没有"既迁移完、又有产物"的第三方可选。
+- **代价**：单个第三方维护者，停更或删库会让 CI 拉不到资产；`sources.lock.json` 的 sha256
+  只能保证"同样的字节"，保证不了"还能下载"。
+- **复核条件（出现任一即换方案）**：① 出现带 CI 产物的 API 4 fork；② 上游合并 API 4；
+  ③ Alice 跨过一个 VS 版本周期未更新。届时的首选备选是自建：CUDA 13.4.2 网络安装器与
+  TensorRT-RTX 1.7 SDK zip 都能免登录下载（`developer.download.nvidia.com`），TensorRT 头文件在
+  `NVIDIA/TensorRT` 仓的 `include/`，VapourSynth 头文件在 wheel 的 `vapoursynth/include`，
+  构建步骤照抄上游 `.github/workflows/windows-trt_rtx.yml`，产物发本仓 release 再按 sha256 钉住；
+  次选是把 VS 钉回 R79 并显式 `LoadPlugin`（实测可用，代价是失去 R80–R82 的 GPU 修复）。
+
 
 - **`vf=vapoursynth` 的路径**：mpv 滤镜参数用 `:` 分隔，Windows 盘符会被当成参数分隔符。冒烟测试因此 `cwd` 到 stage 后用相对路径。
 - **`python3xx._pth` 模式下 `PYTHONPATH` 无效**：`vs-scripts/` 是 `._pth` 里写死的搜索路径，所以 `k7sfunc` 要么进 `Lib/site-packages`，要么进 `vs-scripts/`。
