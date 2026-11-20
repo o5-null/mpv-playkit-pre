@@ -1,12 +1,14 @@
-"""把各组件装配成可分发的便携目录（stage）。
+"""装配 stage 目录。
 
-stage 布局（与 mpv-lazy / K7sfunc 文档约定一致）：
+装配顺序：先按组件 kind 安装（下载缓存在 .work/downloads），再跑组件声明的
+后处理（copies / python_pth），最后铺 portable_config、许可与 BUILD_INFO。
+
+stage 最终布局（相对包根）：
     mpv.exe mpv.com d3dcompiler_43.dll
-    python.exe ... Lib/ Scripts/            <- 便携 Python + VapourSynth
-    VSScript.dll VSVFW.dll VSPipe.exe portable.vs vs-plugins/ vs-scripts/
-    Lib/site-packages/k7sfunc/              <- 自维护 fork 的源码树（含 mod_playkit）
-    portable_config/                        <- 上游配置 + fork 的前端脚本
-    licenses/ BUILD_INFO.json
+    python.exe pythonw.exe python3.dll pythonXY.dll pythonXY.zip pythonXY._pth
+    vsscript.dll libvapoursynth*.dll vsvfw.dll portable.vs vs-plugins/
+    Lib/site-packages/{vapoursynth,k7sfunc}/ ...
+    portable_config/  licenses/  BUILD_INFO.json
 """
 
 from __future__ import annotations
@@ -18,117 +20,146 @@ from pathlib import Path
 
 from . import common, fetch, inputs
 
-REQUIRED_ROOT = [
+# 装配完成后必须存在的路径（相对包根；支持 glob）
+REQUIRED_ROOT = (
     "mpv.exe",
     "portable_config/mpv.conf",
     "portable_config/scripts",
     "portable_config/scripts/k7f_playkit.lua",
+    "portable_config/scripts/k7f_vs.lua",
     "python.exe",
     "python*._pth",
-    "VSScript.dll",
+    "python3.dll",
+    "vsscript.dll",
+    "libvapoursynth.dll",
     "portable.vs",
+    "vs-plugins",
+    "Lib/site-packages/vapoursynth/__init__.py",
     "Lib/site-packages/k7sfunc/__init__.py",
     "Lib/site-packages/k7sfunc/mod_playkit.py",
     "BUILD_INFO.json",
-]
+)
 
 
-def select_components(with_ids: list[str], without_ids: list[str]) -> list[dict]:
+def select_components(with_ids: list[str] | None = None,
+                      without_ids: list[str] | None = None) -> list[dict]:
+    """按 --with / --without 过滤组件；disable 的组件默认不装。"""
     manifest = common.load_manifest()
-    all_comps = {c["id"]: c for c in common.components(manifest)}
-    for cid in with_ids:
-        if cid not in all_comps:
+    comps = common.components(manifest)
+    known = {c["id"] for c in comps}
+    for cid in with_ids or []:
+        if cid not in known:
             common.fail(f"--with 指定的组件不存在: {cid}")
+    with_set = set(with_ids or [])
+    without_set = set(without_ids or [])
     selected = []
-    for comp in all_comps.values():
+    for comp in comps:
         cid = comp["id"]
-        if cid in without_ids:
+        if cid in without_set:
             continue
-        if comp.get("disable") and cid not in with_ids:
-            common.log(f"跳过未启用的可选组件: {cid}")
+        if comp.get("disable") and cid not in with_set:
             continue
         selected.append(comp)
     return selected
 
 
-# ---------------------------------------------------------------- 各类组件
+# ---------------------------------------------------------------- 各 kind 的安装
 
 
 def install_mpv(stage: Path, comp: dict, archive: Path) -> None:
-    tmp = common.make_temp_dir("mpv-")
-    try:
-        common.extract_7z(archive, tmp, comp.get("members"))
-        for member in comp.get("members") or []:
-            src = tmp / member
-            if not src.exists():
-                common.fail(f"mpv 包内缺少 {member}")
-            common.copy_file(src, stage / member)
-    finally:
-        common.remove_tree(tmp)
+    members = comp.get("members") or []
+    if not members:
+        common.fail(f"{comp['id']}: kind=mpv-7z 需要 members")
+    tmp = common.make_temp_dir(f"{comp['id']}-")
+    common.extract_7z(archive, tmp, members)
+    for member in members:
+        src = tmp / member
+        if not src.exists():
+            common.fail(f"{comp['id']}: 压缩包内缺少 {member}")
+        common.copy_file(src, stage / member)
+    common.log(f"{comp['id']}: 取出 {len(members)} 个文件")
 
 
 def install_archive(stage: Path, comp: dict, archive: Path) -> None:
-    tmp = common.make_temp_dir(f"{comp['id']}-")
     install_to = comp.get("install_to", ".")
-    dest_root = (stage / install_to).resolve() if install_to != "." else stage.resolve()
+    dest_root = stage / install_to
     excludes = comp.get("exclude") or []
-    try:
-        common.extract(archive, tmp, comp.get("extract", "7z"))
-        count = 0
-        for src in sorted(tmp.rglob("*")):
-            rel = src.relative_to(tmp).as_posix()
-            if common.match_any(rel, excludes):
-                continue
-            if src.is_symlink():
-                continue
-            target = dest_root / rel
-            if src.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, target)
-            count += 1
-        common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
-    finally:
-        common.remove_tree(tmp)
+    tmp = common.make_temp_dir(f"{comp['id']}-")
+    common.extract(archive, tmp, comp.get("extract", "7z"))
+    count = 0
+    for src in tmp.rglob("*"):
+        rel = src.relative_to(tmp).as_posix()
+        if common.match_any(rel, excludes):
+            continue
+        target = dest_root / rel
+        if src.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target)
+        count += 1
+    common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
 
 
 def install_wheel(stage: Path, comp: dict, archive: Path) -> None:
+    """wheel 解压后按 exclude 过滤，避免把 __pycache__ / 头文件 / pdb 带进包里。"""
     install_to = comp.get("install_to", "Lib/site-packages")
-    dest = stage / install_to
-    common.extract_zip(archive, dest)
-    common.log(f"{comp['id']}: wheel 解包 -> {install_to}")
+    dest_root = stage / install_to
+    excludes = comp.get("exclude") or []
+    tmp = common.make_temp_dir(f"{comp['id']}-")
+    common.extract_zip(archive, tmp)
+    count = 0
+    for src in tmp.rglob("*"):
+        rel = src.relative_to(tmp).as_posix()
+        if common.match_any(rel, excludes):
+            continue
+        target = dest_root / rel
+        if src.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target)
+        count += 1
+    common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
 
 
 def install_file(stage: Path, comp: dict, archive: Path) -> None:
     target = comp.get("target")
     if not target:
-        common.fail(f"组件 {comp['id']} 缺少 target")
+        common.fail(f"{comp['id']}: kind=file 需要 target")
     common.copy_file(archive, stage / target)
-    common.log(f"{comp['id']}: 单文件安装 -> {target}")
+    common.log(f"{comp['id']}: -> {target}")
 
 
 def install_git_tree(stage: Path, comp: dict, archive: Path) -> None:
-    """仓库 tarball：剥掉唯一的顶层目录，再按 paths 逐项复制。"""
     tmp = common.make_temp_dir(f"{comp['id']}-")
-    try:
-        common.extract(archive, tmp, "tar")
-        roots = [p for p in tmp.iterdir() if p.is_dir()]
-        if len(roots) != 1:
-            common.fail(f"{comp['id']}: 压缩包应当只有一个顶层目录，实际 {len(roots)} 个")
-        root = roots[0]
-        for item in comp["paths"]:
-            src = root / item["source"]
-            if not src.exists():
-                common.fail(f"{comp['id']}: 源码树缺少 {item['source']}（fork 是否已推送？）")
-            dest = stage / item["target"]
-            if src.is_dir():
-                common.copy_tree(src, dest)
-            else:
-                common.copy_file(src, dest)
-            common.log(f"{comp['id']}: {item['source']} -> {item['target']}")
-    finally:
-        common.remove_tree(tmp)
+    common.extract(archive, tmp, "tar")
+    tops = [p for p in tmp.iterdir() if p.is_dir()]
+    if len(tops) != 1:
+        common.fail(f"{comp['id']}: tarball 顶层目录不是唯一的: {[p.name for p in tops]}")
+    root = tops[0]
+    for item in comp["paths"]:
+        src = root / item["source"]
+        if not src.exists():
+            common.fail(f"{comp['id']}: 源码树缺少 {item['source']}（fork 是否已推送？）")
+        target = stage / item["target"]
+        if src.is_dir():
+            common.copy_tree(src, target)
+        else:
+            common.copy_file(src, target)
+    common.log(f"{comp['id']}: 复制 {len(comp['paths'])} 条路径")
+
+
+def install_repo_files(stage: Path, comp: dict, archive: Path | None) -> None:
+    """仓库内文件直接落地（无下载、无版本）。"""
+    count = 0
+    for item in comp["files"]:
+        src = common.ROOT / item["source"]
+        if not src.exists():
+            common.fail(f"{comp['id']}: 仓库缺少 {item['source']}")
+        common.copy_file(src, stage / item["target"])
+        count += 1
+    common.log(f"{comp['id']}: 落地 {count} 个仓库文件")
 
 
 INSTALLERS = {
@@ -137,66 +168,120 @@ INSTALLERS = {
     "whl": install_wheel,
     "file": install_file,
     "git-tree": install_git_tree,
+    "repo-files": install_repo_files,
 }
 
 
-# ---------------------------------------------------------------- 本项目内容
+# ---------------------------------------------------------------- 后处理
+
+
+def apply_copies(stage: Path, comp: dict) -> None:
+    """组件声明的 copies：把已装好的文件复制到包根（或其它位置）。"""
+    for item in comp.get("copies") or []:
+        src = stage / item["source"]
+        if not src.exists():
+            common.fail(f"{comp['id']}: copies 源文件缺失 {item['source']}")
+        common.copy_file(src, stage / item["target"])
+    if comp.get("copies"):
+        common.log(f"{comp['id']}: 复制 {len(comp['copies'])} 个文件到包根")
+
+
+def configure_python_pth(stage: Path, comp: dict) -> None:
+    """改写嵌入式 Python 的 ._pth：加 site-packages，并启用 import site。
+
+    embed 包默认只认 pythonXY.zip 和当前目录，也不执行 import site，
+    因此 wheel 装进 Lib/site-packages 后必须显式登记，否则 import vapoursynth 失败。
+    """
+    pth_files = sorted(stage.glob("python*._pth"))
+    if not pth_files:
+        common.fail(f"{comp['id']}: 包根没有 python*._pth（embed 包结构变了？）")
+    pth = pth_files[0]
+    lines = [ln.strip() for ln in pth.read_text(encoding="utf-8-sig").splitlines()]
+    wanted = ["Lib\\site-packages", "import site"]
+    for line in wanted:
+        if not any(ln.lstrip("#").strip().lower() == line.lower() for ln in lines):
+            lines.append(line)
+    # 原有的 "#import site" 改成启用状态
+    lines = ["import site" if ln.lstrip("#").strip().lower() == "import site" else ln
+             for ln in lines]
+    pth.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    common.log(f"{comp['id']}: 已登记 {pth.name} <- Lib\\site-packages")
+
+
+POST_STEPS = (
+    ("copies", apply_copies),
+    ("python_pth", configure_python_pth),
+)
+
+
+def run_post_steps(stage: Path, comp: dict) -> None:
+    for flag, step in POST_STEPS:
+        if comp.get(flag):
+            step(stage, comp)
+
+
+# ---------------------------------------------------------------- 配置与配套文件
 
 
 def copy_configuration(stage: Path) -> None:
-    """上游 portable_config 先铺，再叠加本项目 overlay（同名文件整体覆盖）。"""
+    """上游 portable_config 整目录 + 本仓库 overlay（如有）。"""
     src = common.ROOT / "portable_config"
     if not src.exists():
         common.fail("仓库缺少 portable_config/，请先同步上游")
     common.copy_tree(src, stage / "portable_config")
-
     overlay = common.ROOT / "overlay"
     if overlay.exists():
         common.copy_tree(overlay, stage)
-        common.log("已叠加 overlay/")
+        common.log("已应用 overlay/")
 
 
-def copy_licenses(stage: Path) -> None:
+def copy_licenses(stage: Path, selected: list[dict]) -> None:
     dest = stage / "licenses"
-    dest.mkdir(exist_ok=True)
-    repo_licenses = common.ROOT / "licenses"
-    if repo_licenses.exists():
-        common.copy_tree(repo_licenses, dest)
-    readme = common.ROOT / "LICENSE.MD"
-    if readme.exists():
-        common.copy_file(readme, dest / "upstream-mpv-playkit-LICENSE.MD")
+    dest.mkdir(parents=True, exist_ok=True)
+    common.copy_tree(common.ROOT / "licenses", dest)
+    upstream_license = common.ROOT / "LICENSE.MD"
+    if upstream_license.exists():
+        common.copy_file(upstream_license, dest / "upstream-mpv-playkit-LICENSE.MD")
 
-    # 从已安装的运行时里提取随包许可文本（K7sfunc 的许可由 git-tree 组件直接落在 licenses/）
-    license_sources = [
-        (stage / "LICENSE.txt", "python-vapoursynth-LICENSE.txt"),
-    ]
-    for src, name in license_sources:
+    # 官方 CPython embed 包自带的许可
+    for name in ("LICENSE.txt",):
+        src = stage / name
         if src.exists():
-            common.copy_file(src, dest / name)
+            common.copy_file(src, dest / "python-LICENSE.txt")
 
-    third_party = [
-        "# 第三方组件",
-        "",
-        "| 组件 | 版本 | 许可 | 来源 |",
-        "| --- | --- | --- | --- |",
-        "| mpv | shinchiro 构建 | GPL-2.0-or-later / LGPL-2.1-or-later | https://github.com/mpv-player/mpv |",
-        "| VapourSynth | R73 | LGPL-2.1-or-later | https://github.com/vapoursynth/vapoursynth |",
-        "| CPython | 3.14.3 | PSF-2.0 | https://www.python.org/ |",
-        "| K7sfunc | 见 BUILD_INFO.json | GPL-3.0-or-later (src/) | https://github.com/o5-null/K7sfunc |",
-        "| mpv_PlayKit 配置 | 见 BUILD_INFO.json | 见 upstream-mpv-playkit-LICENSE.MD | https://github.com/hooke007/mpv_PlayKit |",
-        "",
-        "mpv 的完整 GPL/LGPL 文本见 mpv 源码仓库的 LICENSE.GPL 与 LICENSE.LGPL。",
-    ]
-    (dest / "THIRD_PARTY.md").write_text("\n".join(third_party) + "\n", encoding="utf-8")
+    # 官方 VapourSynth wheel 的许可（dist-info 里的 COPYING*）
+    for entry in stage.glob("Lib/site-packages/vapoursynth-*.dist-info/licenses/*"):
+        common.copy_file(entry, dest / f"vapoursynth-{entry.name}")
+
+    rows = ["| 组件 | 版本 | 许可 |", "| --- | --- | --- |"]
+    for comp in selected:
+        version = comp.get("version") or "仓库内文件"
+        rows.append(f"| {comp.get('summary', comp['id'])} | {version} | {comp.get('license', '未标注')} |")
+    rows.append("| mpv_PlayKit 配置（portable_config/） | 见 upstream.json | 见上游 LICENSE.MD |")
+    (dest / "THIRD_PARTY.md").write_text(
+        "# 第三方组件许可\n\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    common.log("已写入 licenses/THIRD_PARTY.md")
 
 
 def write_build_info(stage: Path, version: str, selected: list[dict],
-                     archives: dict[str, Path]) -> None:
-    upstream_file = common.ROOT / "upstream.json"
+                     archives: dict[str, Path | None]) -> None:
     upstream = {}
+    upstream_file = common.ROOT / "upstream.json"
     if upstream_file.exists():
         upstream = json.loads(upstream_file.read_text(encoding="utf-8"))
-
+    components = []
+    for comp in selected:
+        entry = {
+            "id": comp["id"],
+            "kind": comp["kind"],
+            "summary": comp.get("summary", ""),
+            "version": comp.get("version") or "repo",
+            "url": comp.get("url"),
+            "sha256": (comp.get("sha256") or "").lower() or None,
+        }
+        archive = archives.get(comp["id"])
+        entry["size"] = archive.stat().st_size if archive and archive.exists() else None
+        components.append(entry)
     info = {
         "name": common.PROJECT_NAME,
         "version": version,
@@ -206,55 +291,46 @@ def write_build_info(stage: Path, version: str, selected: list[dict],
         "inputs_hash": inputs.compute_inputs_hash(),
         "lock_digest": inputs.lock_digest(),
         "upstream": upstream,
-        "components": [
-            {
-                "id": comp["id"],
-                "kind": comp["kind"],
-                "version": comp["version"],
-                "url": comp["url"],
-                "sha256": comp["sha256"].lower(),
-                "size": archives[comp["id"]].stat().st_size if comp["id"] in archives else None,
-            }
-            for comp in selected
-        ],
+        "components": components,
     }
     (stage / "BUILD_INFO.json").write_text(
         json.dumps(info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    common.log("已写入 BUILD_INFO.json")
 
 
 def verify_stage_minimum(stage: Path) -> None:
     missing = []
     for rel in REQUIRED_ROOT:
-        if "*" in rel:
+        if any(ch in rel for ch in "*?"):
             if not any(stage.glob(rel)):
                 missing.append(rel)
         elif not (stage / rel).exists():
             missing.append(rel)
     if missing:
-        common.fail("stage 缺少必需内容: " + ", ".join(missing))
+        common.fail("stage 缺少必需路径: " + ", ".join(missing))
 
 
-# ---------------------------------------------------------------- 入口
+# ---------------------------------------------------------------- 主流程
 
 
 def assemble(version: str, with_ids: list[str] | None = None,
              without_ids: list[str] | None = None) -> Path:
-    with_ids = with_ids or []
-    without_ids = without_ids or []
     selected = select_components(with_ids, without_ids)
-
-    common.log(f"装配 {common.PROJECT_NAME} {version}，组件: {', '.join(c['id'] for c in selected)}")
+    common.log(f"装配 {common.PROJECT_NAME} {version}，组件: "
+               + ", ".join(f"{c['id']}={c.get('version') or 'repo'}" for c in selected))
     archives = fetch.fetch_all(selected)
 
     stage = common.STAGE_ROOT / common.package_basename(version)
     common.remove_tree(stage)
-    stage.mkdir(parents=True)
+    stage.mkdir(parents=True, exist_ok=True)
 
     for comp in selected:
         INSTALLERS[comp["kind"]](stage, comp, archives[comp["id"]])
+    for comp in selected:
+        run_post_steps(stage, comp)
 
     copy_configuration(stage)
-    copy_licenses(stage)
+    copy_licenses(stage, selected)
     write_build_info(stage, version, selected, archives)
     verify_stage_minimum(stage)
 

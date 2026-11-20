@@ -75,16 +75,21 @@ def _download(url: str, dest: Path, timeout: int = 300, retries: int = 3) -> Non
         try:
             common.log(f"下载 ({attempt}/{retries}): {url}")
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(req, timeout=timeout) as resp, part.open("wb") as out:
-                total = 0
-                while True:
-                    chunk = resp.read(CHUNK)
-                    if not chunk:
-                        break
-                    out.write(chunk)
-                    total += len(chunk)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                declared = resp.headers.get("Content-Length")
+                with part.open("wb") as out:
+                    total = 0
+                    while True:
+                        chunk = resp.read(CHUNK)
+                        if not chunk:
+                            break
+                        out.write(chunk)
+                        total += len(chunk)
             if part.stat().st_size == 0:
                 raise IOError("下载内容为空")
+            # 连接提前关闭时 urllib 不报错，只能靠 Content-Length 兜底
+            if declared and declared.isdigit() and int(declared) != total:
+                raise IOError(f"下载不完整: {total}/{declared} 字节")
             part.replace(dest)
             common.log(f"完成 {dest.name} ({total} 字节)")
             return
@@ -119,8 +124,12 @@ def fetch(comp: dict, force: bool = False) -> Path:
     return dest
 
 
-def fetch_all(selected: list[dict], force: bool = False) -> dict[str, Path]:
-    result: dict[str, Path] = {}
+def fetch_all(selected: list[dict], force: bool = False) -> dict[str, Path | None]:
+    """按需下载；仓库内文件（repo-files）没有 url，值为 None。"""
+    result: dict[str, Path | None] = {}
     for comp in selected:
+        if not comp.get("url"):
+            result[comp["id"]] = None
+            continue
         result[comp["id"]] = fetch(comp, force=force)
     return result

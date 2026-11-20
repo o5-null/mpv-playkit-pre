@@ -15,8 +15,9 @@ from . import common
 FORBIDDEN_PARTS = ("__pycache__", ".git", ".work")
 FORBIDDEN_SUFFIXES = (".pyc", ".pyo", ".part")
 
-# 不应出现在最终包里的开发期文件（来自 python-vs 归档）
-FORBIDDEN_ROOT_NAMES = ("sdk", "vsgenstubs4", "7z.exe", "get-pip.py", "doc/manual.pdf")
+# 不应出现在最终包里的开发期文件（官方 embed 包里的头文件/导入库/调试库）
+FORBIDDEN_ROOT_NAMES = ("Include", "Libs", "tools", "python3t.dll", "python.cat",
+                        "build-details.json", "sdk", "vsgenstubs4", "7z.exe", "get-pip.py")
 
 
 def check_stage(stage: Path) -> None:
@@ -24,10 +25,13 @@ def check_stage(stage: Path) -> None:
         common.fail(f"stage 目录不存在: {stage}（先跑 python -m build assemble）")
     missing = [rel for rel in (
         "mpv.exe", "mpv.com", "d3dcompiler_43.dll",
-        "python.exe", "VSScript.dll", "portable.vs",
+        "python.exe", "python3.dll", "portable.vs",
+        "vsscript.dll", "libvapoursynth.dll", "vs-plugins",
         "portable_config/mpv.conf", "portable_config/input.conf",
         "portable_config/scripts/k7f_playkit.lua",
+        "portable_config/scripts/k7f_vs.lua",
         "portable_config/script-opts/k7f_playkit.conf",
+        "Lib/site-packages/vapoursynth/__init__.py",
         "Lib/site-packages/k7sfunc/__init__.py",
         "Lib/site-packages/k7sfunc/mod_playkit.py",
         "licenses/THIRD_PARTY.md",
@@ -77,10 +81,13 @@ def check_archive(archive: Path) -> None:
         if len(roots) != 1:
             common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
         root = roots.pop()
-        required = ("mpv.exe", "portable_config/mpv.conf", "BUILD_INFO.json",
+        required = ("mpv.exe", "python.exe", "vsscript.dll", "portable_config/mpv.conf",
+                    "BUILD_INFO.json",
+                    "Lib/site-packages/vapoursynth/__init__.py",
                     "Lib/site-packages/k7sfunc/__init__.py",
                     "Lib/site-packages/k7sfunc/mod_playkit.py",
-                    "portable_config/scripts/k7f_playkit.lua")
+                    "portable_config/scripts/k7f_playkit.lua",
+                    "portable_config/scripts/k7f_vs.lua")
         for rel in required:
             if f"{root}/{rel}" not in names:
                 common.fail(f"压缩包缺少: {root}/{rel}")

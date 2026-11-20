@@ -14,20 +14,26 @@ from . import common
 
 FATAL_PATTERNS = (
     "Fatal error",
-    "Error parsing option",
     "Failed to load script",
     "Can not load",
     "cannot open shared object",
 )
-# 无音频设备时的提示不是致命项
-NON_FATAL = ("Could not open/initialize audio device",)
+# 不判定为失败的行：
+#  - 无音频设备；
+#  - 上游 mpv.conf 里的空值选项（如 include= / vulkan-device=）在新版 mpv 上会报
+#    "Error parsing option ..."，只影响该选项自身（回到默认值），上游目录我们不修改。
+NON_FATAL = (
+    "Could not open/initialize audio device",
+    "Error parsing option",
+)
 
 PY_CHECK = (
     "import sys, vapoursynth as vs, k7sfunc;"
     "print('python', sys.version.split()[0]);"
-    "print('vapoursynth api', vs.R4 if hasattr(vs, 'R4') else 'ok');"
+    "print('vapoursynth', vs.__version__);"
+    "clip = vs.core.std.BlankClip(width=64, height=64, length=2);"
+    "print('std filter', clip.width, clip.height);"
     "print('k7sfunc', k7sfunc.__version__);"
-    "print('playkit preset', 'PLAYKIT_RUN' in dir(k7sfunc));"
     "assert hasattr(k7sfunc, 'PLAYKIT_RUN'), 'fork 缺少 mod_playkit';"
     "print('playkit presets', ','.join(k7sfunc.PLAYKIT_PRESETS))"
 )
@@ -88,12 +94,15 @@ def smoke(stage: Path) -> None:
         if proc.returncode != 0 or "mpv v" not in proc.stdout:
             common.fail("mpv --version 失败")
 
-        # 3) VapourSynth 滤镜链路（无配置、恒等 vpy、lavfi 测试源）
+        # 3) VapourSynth 滤镜链路：走真实便携布局（portable_config 生效），
+        #    顺便验证 k7f_vs.lua 写出 VSScript 运行时配置。
+        #    不能用 --no-config：那样脚本拿不到包根（~~/ 为空、get_script_directory 为 nil），
+        #    测不到真实路径。
         vpy = stage / "smoke_identity.vpy"
         vpy.write_text(IDENTITY_VPY, encoding="utf-8")
         try:
             proc = common.run(
-                [mpv, "--no-config", "--vo=null", "--ao=null", "--frames=2",
+                [mpv, "--vo=null", "--ao=null", "--frames=2",
                  "--vf=vapoursynth=smoke_identity.vpy", LAVFI_SOURCE],
                 cwd=stage, timeout=300, env=NO_BYTECODE)
         finally:

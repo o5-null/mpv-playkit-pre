@@ -92,14 +92,25 @@ python -m build all
 
 `--version` 不给时用文件名主干做版本标签，想更整洁就显式传。
 
-**换 VapourSynth 运行时**：同上的 `--id python-vs`。注意新版可能改布局（R82 起官方 portable 包
-不再带 DLL，而是 `wheel/vapoursynth-*.whl`），换之前先确认 `VSScript.dll`、`portable.vs`、
-`python*._pth` 仍在，否则 `verify_stage_minimum` 会当场拦住。
+**换 Python / VapourSynth**：两个独立组件，各自钉新版。
+
+```bash
+# 官方嵌入式 Python（python.org 的 embed zip）
+python -m build.pin --id python --version 3.15.3 \
+  --url https://www.python.org/ftp/python/3.15.3/python-3.15.3-embed-amd64.zip
+# 官方 VapourSynth（PyPI wheel，cp312-abi3 稳定 ABI）
+python -m build.pin --id vapoursynth --version R83 \
+  --url https://files.pythonhosted.org/packages/.../vapoursynth-83-cp312-abi3-win_amd64.whl
+```
+
+升级后要确认三件事：wheel 里仍有 `vsscript.dll`、`libvapoursynth.dll`、`libvapoursynthfilters*.dll`（manifest 的 `copies` 依赖这些名字）；
+`python3xx._pth` 仍存在（`python_pth` 后处理依赖它）；`vsscript.dll` 的 Python 定位方式没变（R82 起是"四层上溯 → TOML"，
+细节见 `docs/DECISIONS.md` 第 2 条）。缺一项 `verify_stage_minimum` 或冒烟测试会当场拦住。
 
 **换 K7sfunc（fork）**：先 push 到 fork，再钉新的 commit：
 
 ```bash
-python -m build.pin --id k7sfunc --version 1.9.0+pre.2 \
+python -m build.pin --id k7sfunc --version 1.9.0+pre.3 \
   --url https://codeload.github.com/o5-null/K7sfunc/tar.gz/<40位commit>
 ```
 

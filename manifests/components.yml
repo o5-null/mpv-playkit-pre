@@ -7,14 +7,17 @@
 #
 # 字段
 #   id          组件标识（--with/--without、日志、BUILD_INFO 都用它）
-#   kind        mpv-7z | archive | whl | file | git-tree
+#   kind        mpv-7z | archive | whl | file | git-tree | repo-files
 #   summary     一句话说明（会写进 docs 与报错信息）
 #   upstream    上游仓库，仅作溯源记录，构建不访问它
 #   members     kind=mpv-7z：从 7z 中只取这些文件，放到包根
 #   extract     kind=archive：7z | zip
 #   exclude     kind=archive：整树复制时排除的路径（前缀或通配符）
 #   install_to  安装目录（相对包根，默认 "."）
+#   copies      装完后把 source（相对包根）复制到 target（相对包根）
+#   python_pth  true 表示安装后补写 <python*._pth>：加 site-packages 并启用 site
 #   target      kind=file：落地路径
+#   files       kind=repo-files：{source, target} 列表，source 相对仓库根
 #   paths       kind=git-tree：{source, target} 映射，source 相对仓库根
 #   disable     true 表示默认不装，需 `--with <id>` 显式启用
 #   license     SPDX 标识，写进 licenses/THIRD_PARTY.md
@@ -41,31 +44,72 @@ components:
       - mpv.com
       - d3dcompiler_43.dll
 
-  # 便携 Python + VapourSynth 运行时（hooke007 的快速部署包）
-  # 解压到 mpv.exe 同级：python.exe / Lib / VSScript.dll / vs-plugins / portable.vs
-  - id: python-vs
+  # 官方 CPython 嵌入式发行版（python.org 的 embed 包，不带 pip / Lib / tools）
+  # 解压到包根：python.exe / python3.dll / pythonXY.dll / pythonXY.zip / pythonXY._pth
+  # 不装 LibreOffice 式完整发行版的原因：体积与用途都只为 VapourSynth 提供解释器。
+  - id: python
     kind: archive
-    summary: 便携 CPython 3.14 + VapourSynth R73
-    upstream: hooke007/dotfiles@mpv_addones
-    license: PSF-2.0 AND LGPL-2.1-or-later
-    extract: 7z
+    summary: 官方 CPython 3.15 嵌入式发行版
+    upstream: python/cpython
+    license: PSF-2.0
+    extract: zip
     install_to: .
+    python_pth: true
     exclude:
-      - doc
-      - sdk
-      - vsgenstubs4
-      - get-pip.py
-      - vsrepo.py
-      - 7z.exe
-      - 7z.dll
-      - AVFS.exe
-      - pfm-192-vapoursynth-win.exe
-      - MANIFEST.in
+      - Include
+      - Libs
+      - tools
+      - python3t.dll
       - python.cat
+      - build-details.json
+      - "*.pdb"
+
+  # 官方 VapourSynth wheel：解到 Lib/site-packages 供 Python 导入，
+  # 同时把运行时 DLL 复制到包根——mpv 的 vf=vapoursynth 只从 mpv.exe 同目录
+  # 找 VSScript.dll，而 R82 起该 DLL 不再编译期链接 Python，需要配套一行
+  # 运行时配置（由 k7f_vs.lua 首次运行写入，见 docs/DECISIONS.md）。
+  - id: vapoursynth
+    kind: whl
+    summary: 官方 VapourSynth R82（CPython 扩展 + 运行时 DLL）
+    upstream: vapoursynth/vapoursynth
+    license: LGPL-2.1-or-later
+    install_to: Lib/site-packages
+    # wheel 里的开发物：__pycache__/头文件/pkgconfig/调试符号，装包时一律丢掉
+    exclude:
+      - vapoursynth/__pycache__
+      - vapoursynth/include
+      - vapoursynth/pkgconfig
+      - "*.pdb"
+    copies:
+      - source: Lib/site-packages/vapoursynth/vsscript.dll
+        target: vsscript.dll
+      - source: Lib/site-packages/vapoursynth/libvapoursynth.dll
+        target: libvapoursynth.dll
+      - source: Lib/site-packages/vapoursynth/libvapoursynthfilters.dll
+        target: libvapoursynthfilters.dll
+      - source: Lib/site-packages/vapoursynth/libvapoursynthfilters_avx2.dll
+        target: libvapoursynthfilters_avx2.dll
+      - source: Lib/site-packages/vapoursynth/libvapoursynthfilters_zn4.dll
+        target: libvapoursynthfilters_zn4.dll
+      - source: Lib/site-packages/vapoursynth/vsvfw.dll
+        target: vsvfw.dll
+
+  # 包布局文件：便携标记（portable.vs）与插件目录占位。
+  # 没有版本，也不下载——直接取自本仓库 configs/。
+  - id: playkit-layout
+    kind: repo-files
+    summary: 便携布局文件（portable.vs / vs-plugins）
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    files:
+      - source: configs/portable.vs
+        target: portable.vs
+      - source: configs/vs-plugins.keep
+        target: vs-plugins/.keep
 
   # K7sfunc：自维护 fork 的源码树（不是 PyPI wheel）
   # 钉住的是 fork 的 commit；tarball 剥掉顶层目录后按 paths 复制。
-  # 只取需要的东西：整个 src/k7sfunc 包 + 本 fork 新增的前端两个文件，
+  # 只取需要的东西：整个 src/k7sfunc 包 + 本 fork 新增的前端文件，
   # 不碰上游 mpv/ 里的 mpv.conf / input.conf（那会覆盖 mpv_PlayKit 的主配置）。
   - id: k7sfunc
     kind: git-tree
@@ -77,6 +121,8 @@ components:
         target: Lib/site-packages/k7sfunc
       - source: mpv/portable_config/scripts/k7f_playkit.lua
         target: portable_config/scripts/k7f_playkit.lua
+      - source: mpv/portable_config/scripts/k7f_vs.lua
+        target: portable_config/scripts/k7f_vs.lua
       - source: mpv/portable_config/script-opts/k7f_playkit.conf
         target: portable_config/script-opts/k7f_playkit.conf
       - source: LICENSE

@@ -76,12 +76,13 @@ def fail(message: str) -> None:
 
 # ---------------------------------------------------------------- manifest
 
-KINDS = {"mpv-7z", "archive", "whl", "file", "git-tree"}
-# mpv-7z   : 从 7z 中按 members 取文件，放到包根
-# archive  : 解压后按 exclude 过滤整棵树复制到包根（python+VS 环境）
-# whl      : 解压到 Lib/site-packages/
-# file     : 单文件，下载后放到 target
-# git-tree : 仓库 tarball，剥掉顶层目录后按 paths 映射复制（自维护 fork）
+KINDS = {"mpv-7z", "archive", "whl", "file", "git-tree", "repo-files"}
+# mpv-7z     : 从 7z 中按 members 取文件，放到包根
+# archive    : 解压后按 exclude 过滤整棵树复制到包根（官方 Python embed）
+# whl        : 解压到 Lib/site-packages/（官方 VapourSynth wheel）
+# file       : 单文件，下载后放到 target
+# git-tree   : 仓库 tarball，剥掉顶层目录后按 paths 映射复制（自维护 fork）
+# repo-files : 仓库内文件直接落地（无下载、无版本，如便携标记与插件目录占位）
 
 LOCK_FIELDS = ("version", "url", "sha256")
 
@@ -109,6 +110,13 @@ def load_manifest(path: Path = MANIFEST_PATH) -> dict:
             fail(f"组件 {cid} (kind=file) 缺少 target")
         if comp["kind"] == "git-tree" and not comp.get("paths"):
             fail(f"组件 {cid} (kind=git-tree) 缺少 paths 映射")
+        if comp["kind"] == "repo-files":
+            files = comp.get("files")
+            if not files:
+                fail(f"组件 {cid} (kind=repo-files) 缺少 files 列表")
+            for item in files:
+                if not item.get("source") or not item.get("target"):
+                    fail(f"组件 {cid} 的 files 项必须同时有 source 与 target")
     return data
 
 
@@ -142,8 +150,9 @@ def components(manifest: dict | None = None, lock: dict | None = None) -> list[d
         cid = rule["id"]
         pin = pins.get(cid)
         if pin is None:
-            if rule.get("disable"):
-                merged.append(dict(rule))          # 可选组件允许没有 pin
+            # 可选组件与仓库内文件（repo-files）允许没有 pin
+            if rule.get("disable") or rule["kind"] == "repo-files":
+                merged.append(dict(rule))          # 无版本可钉
                 continue
             missing.append(cid)
             continue

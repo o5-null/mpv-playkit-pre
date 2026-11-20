@@ -13,17 +13,21 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 | 路径 | 说明 | 来源 |
 | --- | --- | --- |
 | `mpv.exe` / `mpv.com` / `d3dcompiler_43.dll` | 播放器本体 | [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake) |
-| `python.exe`、`Lib/`、`VSScript.dll`、`vs-plugins/`、`vs-scripts/` | 便携 CPython 3.14 + VapourSynth R73 | [hooke007/dotfiles@mpv_addones](https://github.com/hooke007/dotfiles/releases/tag/mpv_addones) |
+| `python.exe`、`Lib/`、`python3*.dll` | 官方嵌入式 CPython 3.15 | [python.org](https://www.python.org/downloads/windows/) |
+| `vsscript.dll`、`libvapoursynth*.dll`、`Lib/site-packages/vapoursynth/` | 官方 VapourSynth R82 | [PyPI vapoursynth](https://pypi.org/project/VapourSynth/) |
+| `portable.vs`、`vs-plugins/`、`vs-scripts/` | 便携标记与插件/脚本目录 | 本仓库 + wheel |
 | `portable_config/` | 完整 mpv 配置、uosc 界面、脚本、shader、字体、lua | [hooke007/mpv_PlayKit](https://github.com/hooke007/mpv_PlayKit) |
 | `Lib/site-packages/k7sfunc/` | 超分 / 插帧 / 降噪 / 去色带算法 + `mod_playkit` 预设层 | [o5-null/K7sfunc](https://github.com/o5-null/K7sfunc) 源码树 |
 | `portable_config/scripts/k7f_playkit.lua` | 预设前端（OSD 提示 + 滤镜切换） | 同上 |
+| `portable_config/scripts/k7f_vs.lua` | 首次运行写入 VSScript 的 Python 定位配置 | 同上 |
 | `portable_config/script-opts/k7f_playkit.conf` | 前端默认参数 | 同上 |
 | `licenses/`、`BUILD_INFO.json` | 许可文本与构建溯源 | 构建生成 |
 
 ## 快速开始
 
 1. 解压 zip，进入 `mpv-playkit-pre-<版本>-windows-x64/`；
-2. `mpv.exe` 直接播放。VapourSynth 链路不需要额外配置（`portable.vs` 与 `python*._pth` 已就位）；
+2. `mpv.exe` 直接播放。VapourSynth 链路不需要额外配置：`portable.vs` 与 `python*._pth` 已就位，
+   `k7f_vs.lua` 会在首次运行时把 Python 定位写进 `%APPDATA%\vapoursynth\vapoursynth.toml`；
 3. 想用预设，在你自己的 `input.conf` 里加一条绑定（脚本默认不占用任何按键）：
 
 ```conf
@@ -75,9 +79,12 @@ python -m build.pin --check                       # 重新下载并校验全部
 K7sfunc 用的是 GitHub 源码 tarball（`kind: git-tree`），所以换版本就是钉 fork 的新 commit：
 
 ```bash
-python -m build.pin --id k7sfunc --version 1.9.0+pre.2 \
+python -m build.pin --id k7sfunc --version 1.9.0+pre.3 \
   --url https://codeload.github.com/o5-null/K7sfunc/tar.gz/<40位commit>
 ```
+
+Python 与 VapourSynth 是两个独立组件（`--id python` / `--id vapoursynth`），钉的是
+python.org 的 embed zip 与 PyPI 的 wheel 直链。
 
 ### 上游同步
 

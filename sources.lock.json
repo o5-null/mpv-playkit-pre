@@ -3,11 +3,11 @@
   "platform": "windows-x64",
   "components": {
     "k7sfunc": {
-      "version": "1.9.0+pre.1",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/adcd76a6fb0ed40b0fcc7cb55abf7dd43fb06b08",
-      "sha256": "50ca70cdb1588b0fc2a72dfed7235fca62d6c08f09beb910af8269e162ff7913",
-      "size": 138640,
-      "pinned_at": "2026-11-20T14:02:20Z"
+      "version": "1.9.0+pre.3",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/e38df9c",
+      "sha256": "caf11fb95374982b75af074a6d045558d38665dcedfc7e72fa94369a157fd9b0",
+      "size": 141323,
+      "pinned_at": "2026-11-20T15:39:04Z"
     },
     "mpv": {
       "version": "20261111-git-bcde6b93cc",
@@ -16,12 +16,19 @@
       "size": 34181485,
       "pinned_at": "2026-11-20T13:20:00Z"
     },
-    "python-vs": {
-      "version": "python3.14.3-vapoursynth-R73",
-      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/py.3_14_3+vs.R73-portable.7z",
-      "sha256": "e3e6b432cba9f1a8f69a9d00c8d3ed8b29bec615bfd04a9409b1393adb2bc9cd",
-      "size": 20186798,
-      "pinned_at": "2026-11-20T13:20:00Z"
+    "python": {
+      "version": "3.15.2",
+      "url": "https://www.python.org/ftp/python/3.15.2/python-3.15.2-embed-amd64.zip",
+      "sha256": "d012f3aa29cf07436dae8aea1fec0fd195c2612a0b059b1f915ae0afb9ad1f62",
+      "size": 13740486,
+      "pinned_at": "2026-11-20T15:26:43Z"
+    },
+    "vapoursynth": {
+      "version": "R82",
+      "url": "https://files.pythonhosted.org/packages/09/d7/f67e68a7bf35dc24bdff34b30d14baee5b726790c0bed8cba449790dbc33/vapoursynth-82-cp312-abi3-win_amd64.whl",
+      "sha256": "dbde9930d4e85de4eb220e05a0314edb7469b9016c5c58a279844b90da4a32b1",
+      "size": 23728996,
+      "pinned_at": "2026-11-20T15:27:00Z"
     }
   }
 }
