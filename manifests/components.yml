@@ -44,6 +44,15 @@ components:
       - mpv.com
       - d3dcompiler_43.dll
 
+  # yt-dlp 官方单文件可执行（Windows）。mpv 的 ytdl_hook 会在包根找它，
+  # 所以在线播放（YouTube/Bilibili 等）开箱可用。属于基础包，不是依赖包。
+  - id: yt-dlp
+    kind: file
+    summary: yt-dlp 单文件可执行（在线播放支持）
+    upstream: yt-dlp/yt-dlp
+    license: Unlicense
+    target: yt-dlp.exe
+
   # 官方 CPython 嵌入式发行版（python.org 的 embed 包，不带 pip / Lib / tools）
   # 解压到包根：python.exe / python3.dll / pythonXY.dll / pythonXY.zip / pythonXY._pth
   # 不装 LibreOffice 式完整发行版的原因：体积与用途都只为 VapourSynth 提供解释器。

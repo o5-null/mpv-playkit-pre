@@ -25,6 +25,7 @@ def check_stage(stage: Path) -> None:
         common.fail(f"stage 目录不存在: {stage}（先跑 python -m build assemble）")
     missing = [rel for rel in (
         "mpv.exe", "mpv.com", "d3dcompiler_43.dll",
+        "yt-dlp.exe",
         "python.exe", "python3.dll", "portable.vs",
         "vsscript.dll", "libvapoursynth.dll", "vs-plugins",
         "portable_config/mpv.conf", "portable_config/input.conf",
@@ -81,7 +82,7 @@ def check_archive(archive: Path) -> None:
         if len(roots) != 1:
             common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
         root = roots.pop()
-        required = ("mpv.exe", "python.exe", "vsscript.dll", "portable_config/mpv.conf",
+        required = ("mpv.exe", "yt-dlp.exe", "python.exe", "vsscript.dll", "portable_config/mpv.conf",
                     "BUILD_INFO.json",
                     "Lib/site-packages/vapoursynth/__init__.py",
                     "Lib/site-packages/k7sfunc/__init__.py",

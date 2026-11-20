@@ -107,6 +107,13 @@ python -m build.pin --id vapoursynth --version R83 \
 `python3xx._pth` 仍存在（`python_pth` 后处理依赖它）；`vsscript.dll` 的 Python 定位方式没变（R82 起是"四层上溯 → TOML"，
 细节见 `docs/DECISIONS.md` 第 2 条）。缺一项 `verify_stage_minimum` 或冒烟测试会当场拦住。
 
+**换 yt-dlp**：`kind: file` 组件，钉官方 release 的 `yt-dlp.exe`：
+
+```bash
+python -m build.pin --id yt-dlp --version 2026.10.26 \
+  --url https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe
+```
+
 **换 K7sfunc（fork）**：先 push 到 fork，再钉新的 commit：
 
 ```bash

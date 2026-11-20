@@ -5,6 +5,7 @@
 
 stage 最终布局（相对包根）：
     mpv.exe mpv.com d3dcompiler_43.dll
+    yt-dlp.exe
     python.exe pythonw.exe python3.dll pythonXY.dll pythonXY.zip pythonXY._pth
     vsscript.dll libvapoursynth*.dll vsvfw.dll portable.vs vs-plugins/
     Lib/site-packages/{vapoursynth,k7sfunc}/ ...
@@ -23,6 +24,7 @@ from . import common, fetch, inputs
 # 装配完成后必须存在的路径（相对包根；支持 glob）
 REQUIRED_ROOT = (
     "mpv.exe",
+    "yt-dlp.exe",
     "portable_config/mpv.conf",
     "portable_config/scripts",
     "portable_config/scripts/k7f_playkit.lua",

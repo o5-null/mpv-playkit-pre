@@ -94,6 +94,12 @@ def smoke(stage: Path) -> None:
         if proc.returncode != 0 or "mpv v" not in proc.stdout:
             common.fail("mpv --version 失败")
 
+        # 2b) yt-dlp：只验证能跑起来（不联网，避免 CI 依赖外网与站点改版）
+        proc = common.run([stage / "yt-dlp.exe", "--version"], cwd=stage, timeout=180)
+        _report("yt-dlp --version", proc)
+        if proc.returncode != 0 or not proc.stdout.strip():
+            common.fail("yt-dlp 自检失败")
+
         # 3) VapourSynth 滤镜链路：走真实便携布局（portable_config 生效），
         #    顺便验证 k7f_vs.lua 写出 VSScript 运行时配置。
         #    不能用 --no-config：那样脚本拿不到包根（~~/ 为空、get_script_directory 为 nil），

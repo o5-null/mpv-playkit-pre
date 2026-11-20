@@ -13,6 +13,7 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 | 路径 | 说明 | 来源 |
 | --- | --- | --- |
 | `mpv.exe` / `mpv.com` / `d3dcompiler_43.dll` | 播放器本体 | [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake) |
+| `yt-dlp.exe` | 在线播放后备（mpv 的 ytdl_hook 自动调用） | [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp) |
 | `python.exe`、`Lib/`、`python3*.dll` | 官方嵌入式 CPython 3.15 | [python.org](https://www.python.org/downloads/windows/) |
 | `vsscript.dll`、`libvapoursynth*.dll`、`Lib/site-packages/vapoursynth/` | 官方 VapourSynth R82 | [PyPI vapoursynth](https://pypi.org/project/VapourSynth/) |
 | `portable.vs`、`vs-plugins/`、`vs-scripts/` | 便携标记与插件/脚本目录 | 本仓库 + wheel |
