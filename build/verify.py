@@ -94,4 +94,18 @@ def check_archive(archive: Path) -> None:
         for name in names:
             if any(part in name.split("/") for part in FORBIDDEN_PARTS):
                 common.fail(f"压缩包含禁止目录: {name}")
+
+        # 目录条目必须以 "/" 结尾：否则标准解压工具会把它当 0 字节文件建出来，
+        # 之后同名前缀下的文件必然报 "No such file or directory"。
+        dirs = set()
+        for name in names:
+            if name.endswith("/"):
+                dirs.add(name)
+                continue
+            parts = name.split("/")[:-1]
+            for i in range(1, len(parts) + 1):
+                dirs.add("/".join(parts[:i]) + "/")
+        missing_dirs = sorted(d for d in dirs if d not in set(names))
+        if missing_dirs:
+            common.fail("压缩包目录条目缺少结尾斜杠: " + ", ".join(missing_dirs[:5]))
     common.log(f"归档校验通过: {archive.name}")

@@ -27,8 +27,16 @@ def zip_stage(stage: Path, out_dir: Path | None = None,
     target = out_dir / f"{arc_root}.zip"
 
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        arc_info = zipfile.ZipInfo(f"{arc_root}/", date_time=common.FIXED_TIME)
+        arc_info.external_attr = (0o40755 << 16) | 0x10
+        arc_info.compress_type = zipfile.ZIP_STORED
+        zf.writestr(arc_info, b"")
         for path, rel in _entries(stage):
-            info = zipfile.ZipInfo(f"{arc_root}/{rel}", date_time=common.FIXED_TIME)
+            # 目录条目必须以 "/" 结尾，否则解压工具会把它当 0 字节文件，
+            # 后续同类路径就会报 "No such file or directory"。
+            name = f"{arc_root}/{rel}"
+            info = zipfile.ZipInfo(name if not path.is_dir() else name + "/",
+                                   date_time=common.FIXED_TIME)
             if path.is_dir():
                 info.external_attr = (0o40755 << 16) | 0x10
                 info.compress_type = zipfile.ZIP_STORED
