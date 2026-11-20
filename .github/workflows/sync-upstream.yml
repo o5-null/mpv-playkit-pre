@@ -1,6 +1,6 @@
 # 上游同步工作流：把 hooke007/mpv_PlayKit 的配置与安装器整目录替换进来。
-# 上游只同步 portable_config/ 与 installer/ 两个目录，本项目的 build/、toolkit/、
-# overlay/、manifests/ 由本地维护，二者互不相交，所以永远不会冲突。
+# 上游只同步 portable_config/ 与 installer/ 两个目录，本项目的 build/、manifests/、
+# docs/ 由本地维护，二者互不相交，所以永远不会冲突。自定义功能不在这里，在 K7sfunc fork。
 name: sync-upstream
 
 on:

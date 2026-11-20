@@ -18,7 +18,7 @@ from pathlib import Path
 
 from . import common
 
-USER_AGENT = "mpv-playkit-build/1.0 (+https://github.com/LumeCraft-Labs)"
+USER_AGENT = "mpv-playkit-pre-build/1.0"
 CHUNK = 1 << 20
 
 

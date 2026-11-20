@@ -44,16 +44,19 @@ def main(argv: list[str] | None = None) -> int:
 
     p_smoke = sub.add_parser("smoke", help="冒烟测试")
     _add_common(p_smoke)
-    p_smoke.add_argument("--stage", help="stage 目录，默认按版本推导")
+    p_smoke.add_argument("--stage", nargs="?", const=None,
+                         help="stage 目录，默认按版本推导（可只写 --stage）")
 
     p_pkg = sub.add_parser("package", help="打包 zip")
     _add_common(p_pkg)
-    p_pkg.add_argument("--stage")
+    p_pkg.add_argument("--stage", nargs="?", const=None,
+                       help="stage 目录，默认按版本推导（可只写 --stage）")
     p_pkg.add_argument("--out-dir")
 
     p_ver = sub.add_parser("verify", help="校验 stage 或归档")
     _add_common(p_ver)
-    p_ver.add_argument("--stage")
+    p_ver.add_argument("--stage", nargs="?", const=None,
+                       help="stage 目录，默认按版本推导（可只写 --stage）")
     p_ver.add_argument("--asset")
 
     p_all = sub.add_parser("all", help="完整构建")

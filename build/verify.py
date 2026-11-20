@@ -20,6 +20,8 @@ FORBIDDEN_ROOT_NAMES = ("sdk", "vsgenstubs4", "7z.exe", "get-pip.py", "doc/manua
 
 
 def check_stage(stage: Path) -> None:
+    if not stage.is_dir():
+        common.fail(f"stage 目录不存在: {stage}（先跑 python -m build assemble）")
     missing = [rel for rel in (
         "mpv.exe", "mpv.com", "d3dcompiler_43.dll",
         "python.exe", "VSScript.dll", "portable.vs",
