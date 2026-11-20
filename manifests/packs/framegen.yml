@@ -1,0 +1,53 @@
+# 拓展（挡位）补丁包：帧生成
+#
+# 与 manifests/components.yml 完全同一套 kind 规则，区别只有三点：
+#   1. 版本不在这里，仍然钉在 sources.lock.json，键名是 "framegen/<id>"；
+#   2. 装配结果只允许出现在 vs-plugins/ 与 Lib/site-packages/vapoursynth/plugins/
+#      下（见 build/pack.py 的 ALLOWED_TOP）；
+#   3. 解压覆盖到基础包根即可生效——插件必须落在 VapourSynth 的 plugins 目录，
+#      因为 R82 只自动扫描 Lib/site-packages/vapoursynth/plugins/（递归）。
+#
+# 用法：把产物 zip 解压到基础包根，覆盖同名目录即可。
+# 对应脚本（基础包已带）：portable_config/vs/MEMC_DLSSG_NV.vpy、MEMC_XESSFG_NV.vpy
+# 没有引擎包时 DLSS-G / XeSS-FG 只能跑原版 2×，本包提供 sm86 解锁引擎。
+#
+# 目录分工（两个位置不能合并）：
+#   Lib/site-packages/vapoursynth/plugins/  <- 插件 DLL，VapourSynth 自动加载
+#   vs-plugins/bin/dlss45、bin/xessfg       <- NGX 引擎包，MEMC_*.vpy 按此路径查找
+
+schema: 1
+name: framegen
+title: 帧生成补丁包（轻量档）
+summary: >-
+  DLSS-G 4.5 与 XeSS-FG 帧生成插件，外加解锁 sm86（RTX 20/30 系）的 NGX 引擎包。
+  不含 TensorRT：解压即用，不依赖 CUDA 运行库，也不吃模型。
+
+components:
+  # o5-null/vs-framegen 的官方发行包，条目本来就是 vs-plugins/... 开头。
+  # 插件 DLL 通过 copies 再放一份到 vapoursynth/plugins/，引擎目录留在 vs-plugins/bin/。
+  # 注意 zip 里的 dlssg_sm86/logs/.gitkeep 不能丢：日志目录不存在时引擎会静默失败。
+  - id: vs-framegen
+    kind: archive
+    summary: 帧生成插件（vdlssg / vxessfg / vvfg / vfsr4）与 sm86 引擎
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    copies:
+      - source: vs-plugins/vdlssg.dll
+        target: Lib/site-packages/vapoursynth/plugins/vdlssg.dll
+      - source: vs-plugins/vxessfg.dll
+        target: Lib/site-packages/vapoursynth/plugins/vxessfg.dll
+      - source: vs-plugins/vvfg.dll
+        target: Lib/site-packages/vapoursynth/plugins/vvfg.dll
+      - source: vs-plugins/vfsr4.dll
+        target: Lib/site-packages/vapoursynth/plugins/vfsr4.dll
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vdlssg.dll
+      - Lib/site-packages/vapoursynth/plugins/vxessfg.dll
+      - Lib/site-packages/vapoursynth/plugins/vvfg.dll
+      - Lib/site-packages/vapoursynth/plugins/vfsr4.dll
+      - vs-plugins/bin/dlss45/version.dll
+      - vs-plugins/bin/dlss45/dlssg_sm86/logs/.gitkeep
+      - vs-plugins/bin/dlss45/dlssg_sm86/runtime/nvngx_dlssg.dll
+      - vs-plugins/bin/xessfg/dlssg_sm86/runtime/nvngx_dlssg.dll

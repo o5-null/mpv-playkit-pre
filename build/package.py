@@ -18,23 +18,34 @@ def _entries(stage: Path):
 
 
 def zip_stage(stage: Path, out_dir: Path | None = None,
-              version: str | None = None) -> Path:
+              version: str | None = None, flat: bool = False) -> Path:
+    """打包 stage。
+
+    flat=True 用于拓展补丁包：条目直接以 `vs-plugins/...` 开头，不带顶层目录，
+    这样用户把 zip 解压到基础包根就是覆盖（Overlay），不需要挪目录。
+    """
     out_dir = out_dir or common.OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    version = version or stage.name
-    arc_root = common.package_basename(version) if not stage.name.startswith("mpv-playkit-") \
-        else stage.name
-    target = out_dir / f"{arc_root}.zip"
+    if flat:
+        arc_root = ""
+        archive_name = stage.name
+    else:
+        version = version or stage.name
+        arc_root = common.package_basename(version) if not stage.name.startswith("mpv-playkit-") \
+            else stage.name
+        archive_name = arc_root
+    target = out_dir / f"{archive_name}.zip"
 
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        arc_info = zipfile.ZipInfo(f"{arc_root}/", date_time=common.FIXED_TIME)
-        arc_info.external_attr = (0o40755 << 16) | 0x10
-        arc_info.compress_type = zipfile.ZIP_STORED
-        zf.writestr(arc_info, b"")
+        if arc_root:
+            arc_info = zipfile.ZipInfo(f"{arc_root}/", date_time=common.FIXED_TIME)
+            arc_info.external_attr = (0o40755 << 16) | 0x10
+            arc_info.compress_type = zipfile.ZIP_STORED
+            zf.writestr(arc_info, b"")
         for path, rel in _entries(stage):
             # 目录条目必须以 "/" 结尾，否则解压工具会把它当 0 字节文件，
             # 后续同类路径就会报 "No such file or directory"。
-            name = f"{arc_root}/{rel}"
+            name = f"{arc_root}/{rel}" if arc_root else rel
             info = zipfile.ZipInfo(name if not path.is_dir() else name + "/",
                                    date_time=common.FIXED_TIME)
             if path.is_dir():

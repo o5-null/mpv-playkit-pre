@@ -25,6 +25,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "manifests" / "components.yml"
+PACKS_DIR = ROOT / "manifests" / "packs"
 LOCK_PATH = ROOT / "sources.lock.json"
 WORK_DIR = ROOT / ".work"
 DOWNLOAD_DIR = WORK_DIR / "downloads"
@@ -87,6 +88,28 @@ KINDS = {"mpv-7z", "archive", "whl", "file", "git-tree", "repo-files"}
 LOCK_FIELDS = ("version", "url", "sha256")
 
 
+def _check_component(comp: dict, source: str) -> None:
+    """单个组件的结构校验（基础清单与补丁包清单共用）。"""
+    cid = comp.get("id")
+    if not cid:
+        fail(f"{source}: 组件缺少 id")
+    if not comp.get("kind"):
+        fail(f"{source}: 组件 {cid} 缺少字段 kind")
+    if comp["kind"] not in KINDS:
+        fail(f"{source}: 组件 {cid} 的 kind 未知: {comp['kind']}")
+    if comp["kind"] == "file" and not comp.get("target"):
+        fail(f"{source}: 组件 {cid} (kind=file) 缺少 target")
+    if comp["kind"] == "git-tree" and not comp.get("paths"):
+        fail(f"{source}: 组件 {cid} (kind=git-tree) 缺少 paths 映射")
+    if comp["kind"] == "repo-files":
+        files = comp.get("files")
+        if not files:
+            fail(f"{source}: 组件 {cid} (kind=repo-files) 缺少 files 列表")
+        for item in files:
+            if not item.get("source") or not item.get("target"):
+                fail(f"{source}: 组件 {cid} 的 files 项必须同时有 source 与 target")
+
+
 def load_manifest(path: Path = MANIFEST_PATH) -> dict:
     """读取"规则"清单：只校验结构，不涉及具体版本。"""
     if not path.exists():
@@ -96,27 +119,11 @@ def load_manifest(path: Path = MANIFEST_PATH) -> dict:
         fail(f"清单 schema 必须为 1: {path}")
     seen: set[str] = set()
     for comp in data.get("components") or []:
-        cid = comp.get("id")
-        if not cid:
-            fail("组件缺少 id")
+        _check_component(comp, path.name)
+        cid = comp["id"]
         if cid in seen:
             fail(f"组件 id 重复: {cid}")
         seen.add(cid)
-        if not comp.get("kind"):
-            fail(f"组件 {cid} 缺少字段 kind")
-        if comp["kind"] not in KINDS:
-            fail(f"组件 {cid} 的 kind 未知: {comp['kind']}")
-        if comp["kind"] == "file" and not comp.get("target"):
-            fail(f"组件 {cid} (kind=file) 缺少 target")
-        if comp["kind"] == "git-tree" and not comp.get("paths"):
-            fail(f"组件 {cid} (kind=git-tree) 缺少 paths 映射")
-        if comp["kind"] == "repo-files":
-            files = comp.get("files")
-            if not files:
-                fail(f"组件 {cid} (kind=repo-files) 缺少 files 列表")
-            for item in files:
-                if not item.get("source") or not item.get("target"):
-                    fail(f"组件 {cid} 的 files 项必须同时有 source 与 target")
     return data
 
 
@@ -166,7 +173,9 @@ def components(manifest: dict | None = None, lock: dict | None = None) -> list[d
     if missing:
         fail("sources.lock.json 缺少组件: " + ", ".join(missing)
              + "（用 `python -m build.pin --id <id> --url <url>` 写入）")
-    orphans = sorted(set(pins) - {r["id"] for r in rules})
+    # 补丁包的 pin 键带 "<pack>/" 前缀，由 pack_components() 消费，不算孤儿
+    rule_ids = {r["id"] for r in rules}
+    orphans = sorted(k for k in pins if "/" not in k and k not in rule_ids)
     if orphans:
         fail("sources.lock.json 有清单里不存在的组件: " + ", ".join(orphans))
     return merged
@@ -177,6 +186,77 @@ def component(cid: str, manifest: dict | None = None) -> dict:
         if comp["id"] == cid:
             return comp
     fail(f"清单中没有组件: {cid}")
+
+
+# ---------------------------------------------------------------- 补丁包清单
+#
+# 补丁包（拓展包）是"挡位"层：基础包提供可播放的最小集合，补丁包只往包根
+# 追加插件/引擎/模型。规则写在 manifests/packs/<name>.yml，版本仍钉在同一个
+# sources.lock.json，键统一加 "<pack>/" 前缀，避免与基础组件重名。
+
+
+def pack_path(name: str) -> Path:
+    return PACKS_DIR / f"{name}.yml"
+
+
+def pack_names() -> list[str]:
+    if not PACKS_DIR.exists():
+        return []
+    return sorted(p.stem for p in PACKS_DIR.glob("*.yml"))
+
+
+def load_pack(name: str) -> dict:
+    """读取补丁包清单：结构校验与基础清单一致。"""
+    path = pack_path(name)
+    if not path.exists():
+        available = ", ".join(pack_names()) or "无"
+        fail(f"补丁包清单不存在: {path}（可用: {available}）")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("schema") != 1:
+        fail(f"补丁包清单 schema 必须为 1: {path}")
+    if data.get("name") != name:
+        fail(f"补丁包清单里的 name 应为 {name}: {path}")
+    seen: set[str] = set()
+    for comp in data.get("components") or []:
+        _check_component(comp, path.name)
+        cid = comp["id"]
+        if cid in seen:
+            fail(f"补丁包 {name}: 组件 id 重复: {cid}")
+        seen.add(cid)
+    if not seen:
+        fail(f"补丁包 {name}: components 不能为空")
+    return data
+
+
+def pack_components(name: str, lock: dict | None = None) -> list[dict]:
+    """补丁包规则 + 钉住的版本 -> 完整组件列表；id 统一加 "<pack>/" 前缀。"""
+    pack = load_pack(name)
+    pins = (lock or load_lock()).get("components") or {}
+    merged: list[dict] = []
+    missing: list[str] = []
+    for rule in pack.get("components") or []:
+        key = f"{name}/{rule['id']}"
+        pin = pins.get(key)
+        if pin is None:
+            if rule.get("disable") or rule["kind"] == "repo-files":
+                comp = dict(rule)
+                comp["id"] = key
+                merged.append(comp)
+                continue
+            missing.append(key)
+            continue
+        absent = [f for f in LOCK_FIELDS if not pin.get(f)]
+        if absent:
+            fail(f"补丁包组件 {key} 的 lock 条目缺少: {', '.join(absent)}")
+        comp = dict(rule)
+        comp.update(pin)
+        comp["id"] = key
+        comp["sha256"] = str(comp["sha256"]).lower()
+        merged.append(comp)
+    if missing:
+        fail("sources.lock.json 缺少补丁包组件: " + ", ".join(missing)
+             + f"（用 `python -m build.pin --pack {name} --id <id> --url <url>` 写入）")
+    return merged
 
 
 # ---------------------------------------------------------------- 文件工具
@@ -294,9 +374,15 @@ def extract(archive: Path, dest: Path, kind: str, members: list[str] | None = No
 
 
 def make_temp_dir(prefix: str) -> Path:
+    """在 .work/ 下建临时目录。
+
+    prefix 常来自组件 id，补丁包组件的 id 带 "<pack>/" 前缀，直接拼进路径会把
+    临时目录变成 .work/<pack>/... 这种嵌套路径，故先把分隔符压平。
+    """
     base = WORK_DIR
     base.mkdir(parents=True, exist_ok=True)
-    return Path(tempfile.mkdtemp(prefix=prefix, dir=str(base)))
+    safe = prefix.replace("/", "__").replace("\\", "__")
+    return Path(tempfile.mkdtemp(prefix=safe, dir=str(base)))
 
 
 # ---------------------------------------------------------------- 进程

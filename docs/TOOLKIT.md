@@ -146,6 +146,39 @@ vs-plugins/librife_windows_x86-64.dll
 `vs-k7sfunc.*` 资产。**本仓库不打包这些资产**（单个就上百 MB，且与算法版本强绑定），
 需要时自行下载解压到上面的路径。
 
+## 拓展包与它的两个目录
+
+基础包里没有帧生成插件，也没有 TensorRT 推理插件——它们由补丁包（`manifests/packs/*.yml`）
+以 overlay zip 的形式叠加到包根。补丁包落地时**只碰两个位置**：
+
+```
+Lib/site-packages/vapoursynth/plugins/   # 插件 DLL，由 VapourSynth 自动加载（含子目录）
+└─ vsmlrt/                               # tensorrt-rtx 包：vstrt_rtx.dll + vsmlrt-cuda/ 运行库
+vs-plugins/                              # 资源：模型、引擎包、madVR
+└─ bin/
+   ├─ dlss45/                            # DLSS-G 的 NGX 引擎包（MEMC_DLSSG_NV.vpy 按此路径找）
+   └─ xessfg/                            # XeSS-FG 的引擎包
+```
+
+区别是**机制不同、不能合并**：
+
+- `plugins/` 是 VapourSynth 自己的插件目录，进程启动时扫描并 `LoadPlugin`；放在 `vs-plugins/`
+  里不会被自动加载（`VAPOURSYNTH_PLUGIN_PATH` 也不是它认的变量）。
+- 引擎包与模型是**插件运行时按相对路径查的文件**，不是可加载模块。例如 DLSS-G 的代理在
+  `<插件目录>\dlss45` 找引擎；`MEMC_DLSSG_NV.vpy` 因此按 `vs-plugins/bin/dlss45` 探测，
+  再通过 `proxy_dir` 参数指过去。
+
+`vstrt_rtx.dll` 的 TRT 运行库必须与它同级放在 `vsmlrt-cuda/` 子目录里：插件用
+`dllDir()/vsmlrt-cuda/tensorrt_rtx_<主>_<次>.dll` 做延迟加载预取，放别处只会在第一次推理时
+报找不到 DLL。
+
+想确认补丁包生效（不用开 mpv）：
+
+```powershell
+./python -c "import vapoursynth as vs; print(vs.__version__, [n for n in ('vdlssg','vxessfg','vvfg','vfsr4','trt_rtx') if hasattr(vs.core, n)])"
+```
+
+
 ## 调试
 
 - 日志前缀固定 `[playkit]`，`mpv --msg-level=all=v` 或看 `~~/k7f_playkit.vpy`（前端生成的 vpy）；

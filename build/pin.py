@@ -13,6 +13,9 @@
 
     # 列出当前钉住的版本
     python -m build.pin --list
+
+    # 拓展补丁包：id 写包内短名，键名自动加 "<pack>/" 前缀
+    python -m build.pin --pack framegen --id vs-framegen --url <url>
 """
 
 from __future__ import annotations
@@ -47,17 +50,26 @@ def measure(url: str, cid: str) -> tuple[str, int]:
         dest.unlink(missing_ok=True)
 
 
-def _rules() -> dict[str, dict]:
-    """只读规则清单（不触碰 lock），用于允许"从零开始钉版本"。"""
+def _rules(pack: str | None = None) -> dict[str, dict]:
+    """只读规则清单（不触碰 lock），用于允许"从零开始钉版本"。
+
+    pack 给定时读 manifests/packs/<pack>.yml，键名是 "<pack>/<id>"——
+    与 components()/pack_components() 的命名空间保持一致。
+    """
+    if pack:
+        rules = common.load_pack(pack).get("components") or []
+        return {f"{pack}/{c['id']}": c for c in rules}
     return {c["id"]: c for c in (common.load_manifest().get("components") or [])}
 
 
-def pin(cid: str, url: str, version: str | None, dry_run: bool) -> int:
-    if cid not in _rules():
-        common.fail(f"清单中没有组件: {cid}")
-    digest, size = measure(url, cid)
+def pin(cid: str, url: str, version: str | None, dry_run: bool,
+        pack: str | None = None) -> int:
+    key = f"{pack}/{cid}" if pack and "/" not in cid else cid
+    if key not in _rules(pack):
+        common.fail(f"清单中没有组件: {key}")
+    digest, size = measure(url, key.replace("/", "__"))
     version = version or default_version(url)
-    print(f"{cid}: {version}")
+    print(f"{key}: {version}")
     print(f"  url    {url}")
     print(f"  sha256 {digest}")
     print(f"  size   {size}")
@@ -65,7 +77,7 @@ def pin(cid: str, url: str, version: str | None, dry_run: bool) -> int:
         common.log("--dry-run：未写入 sources.lock.json")
         return 0
     lock = common.load_lock()
-    lock.setdefault("components", {})[cid] = {
+    lock.setdefault("components", {})[key] = {
         "version": version,
         "url": url,
         "sha256": digest,
@@ -76,9 +88,16 @@ def pin(cid: str, url: str, version: str | None, dry_run: bool) -> int:
     return 0
 
 
-def check_all() -> int:
+def check_all(pack: str | None = None) -> int:
     failed = 0
-    for comp in common.components():
+    targets: list[dict] = []
+    if pack:
+        targets = common.pack_components(pack)
+    else:
+        targets = common.components()
+        for name in common.pack_names():
+            targets.extend(common.pack_components(name))
+    for comp in targets:
         try:
             path = fetch.fetch(comp, force=True)
             common.log(f"OK   {comp['id']} {comp['version']} {path.name}")
@@ -88,24 +107,34 @@ def check_all() -> int:
     return 1 if failed else 0
 
 
-def list_pins() -> int:
+def list_pins(pack: str | None = None) -> int:
     """规则与 lock 都直接读，缺 pin 也不报错（方便查看"还差什么"）。"""
-    rules = _rules()
     pins = common.load_lock().get("components") or {}
-    for cid, rule in rules.items():
-        entry = pins.get(cid) or {}
-        version = entry.get("version") or "(未钉住)"
-        digest = (entry.get("sha256") or "")[:12]
-        print(f"{cid:12} {version:38} {digest:12}  {entry.get('url', '')}")
+    groups: list[tuple[str | None, dict[str, dict]]] = []
+    if pack:
+        groups.append((pack, _rules(pack)))
+    else:
+        groups.append((None, _rules()))
+        for name in common.pack_names():
+            groups.append((name, _rules(name)))
+    for group, rules in groups:
+        if group:
+            print(f"[{group}]")
+        for cid, _rule in rules.items():
+            entry = pins.get(cid) or {}
+            version = entry.get("version") or "(未钉住)"
+            digest = (entry.get("sha256") or "")[:12]
+            print(f"{cid:24} {version:38} {digest:12}  {entry.get('url', '')}")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m build.pin", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--id", help="组件 id")
+    parser.add_argument("--id", help="组件 id（配合 --pack 时写包内短名）")
     parser.add_argument("--url", help="资产直链")
     parser.add_argument("--version", help="版本标签（默认取文件名主干）")
+    parser.add_argument("--pack", help="拓展补丁包名（manifests/packs/<name>.yml）")
     parser.add_argument("--dry-run", action="store_true", help="只计算，不写 lock")
     parser.add_argument("--check", action="store_true", help="重新下载并校验 lock 内全部组件")
     parser.add_argument("--list", action="store_true", help="列出当前钉住的版本")
@@ -113,12 +142,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.check:
-            return check_all()
+            return check_all(args.pack)
         if args.list:
-            return list_pins()
+            return list_pins(args.pack)
         if not (args.id and args.url):
             parser.error("需要 --id 与 --url，或使用 --check / --list")
-        return pin(args.id, args.url, args.version, args.dry_run)
+        return pin(args.id, args.url, args.version, args.dry_run, args.pack)
     except common.BuildError as exc:
         print(f"[build] 失败: {exc}", file=sys.stderr)
         return 1

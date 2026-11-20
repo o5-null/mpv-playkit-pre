@@ -8,6 +8,7 @@
     python -m build all                   assemble -> smoke -> package -> verify
     python -m build ci                    等同 CI：fetch -> assemble -> smoke -> package -> verify
     python -m build sync                  同步上游 hooke007/mpv_PlayKit 配置目录
+    python -m build pack                  构建拓展补丁包（默认全部，或 --name）
 """
 
 from __future__ import annotations
@@ -17,8 +18,7 @@ import sys
 from pathlib import Path
 
 from . import assemble as assemble_mod
-from . import common, fetch, package, smoke, sync as sync_mod, verify
-
+from . import common, fetch, pack as pack_mod, package, smoke, sync as sync_mod, verify
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--version", help="包版本，默认取 VERSION + 提交短哈希")
@@ -59,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     p_ver.add_argument("--stage", nargs="?", const=None,
                        help="stage 目录，默认按版本推导（可只写 --stage）")
     p_ver.add_argument("--asset")
+    p_ver.add_argument("--pack", action="store_true",
+                       help="按拓展包（overlay zip）校验 --asset 指向的归档")
 
     p_all = sub.add_parser("all", help="完整构建")
     _add_common(p_all)
@@ -71,6 +73,12 @@ def main(argv: list[str] | None = None) -> int:
     p_sync = sub.add_parser("sync", help="同步上游配置目录（portable_config/installer）")
     p_sync.add_argument("--commit", help="指定上游 commit，默认取上游分支最新")
     p_sync.add_argument("--check", action="store_true", help="只检查，有更新时返回 3")
+
+    p_pack = sub.add_parser("pack", help="构建拓展补丁包（overlay zip）")
+    _add_common(p_pack)
+    p_pack.add_argument("--name", action="append", default=[], metavar="NAME",
+                        help="补丁包名（可重复），默认 manifests/packs/ 下全部")
+    p_pack.add_argument("--out-dir")
 
     args = parser.parse_args(argv)
 
@@ -106,9 +114,23 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.cmd == "verify":
             if args.asset:
-                verify.check_archive(Path(args.asset))
+                if args.pack:
+                    verify.check_pack_archive(Path(args.asset))
+                else:
+                    verify.check_archive(Path(args.asset))
             else:
                 verify.check_stage(Path(args.stage) if args.stage else _stage(args, version))
+            return 0
+
+        if args.cmd == "pack":
+            names = args.name or common.pack_names()
+            if not names:
+                common.fail("manifests/packs/ 下没有补丁包清单")
+            out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
+            for name in names:
+                archive = pack_mod.build_pack(name, version, out_dir,
+                                              args.with_ids, args.without_ids)
+                common.log(f"补丁包完成: {archive}")
             return 0
 
         if args.cmd == "ci":

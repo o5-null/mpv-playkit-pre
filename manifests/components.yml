@@ -134,6 +134,9 @@ components:
         target: portable_config/scripts/k7f_vs.lua
       - source: mpv/portable_config/script-opts/k7f_playkit.conf
         target: portable_config/script-opts/k7f_playkit.conf
+      # 帧生成补帧脚本（DLSS-G / XeSS-FG / VFG / FSR4）；插件与引擎包由拓展包提供
+      - source: mpv/portable_config/vs
+        target: portable_config/vs
       - source: LICENSE
         target: licenses/k7sfunc-LICENSE
       - source: src/LICENSE

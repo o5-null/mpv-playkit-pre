@@ -62,6 +62,22 @@ def check_stage(stage: Path) -> None:
             common.fail(f"BUILD_INFO.json 缺少 {key}（产物无法追溯）")
 
 
+def _check_dir_entries(names: list[str]) -> None:
+    """目录条目必须以 "/" 结尾，否则标准解压工具会把它当 0 字节文件建出来，
+    之后同名前缀下的文件必然报 "No such file or directory"。"""
+    dirs = set()
+    for name in names:
+        if name.endswith("/"):
+            dirs.add(name)
+            continue
+        parts = name.split("/")[:-1]
+        for i in range(1, len(parts) + 1):
+            dirs.add("/".join(parts[:i]) + "/")
+    missing_dirs = sorted(d for d in dirs if d not in set(names))
+    if missing_dirs:
+        common.fail("压缩包目录条目缺少结尾斜杠: " + ", ".join(missing_dirs[:5]))
+
+
 def resolve_asset(target: Path) -> Path:
     """--asset 既接受 zip 路径，也接受只含一个 zip 的目录。"""
     if target.is_dir():
@@ -98,15 +114,33 @@ def check_archive(archive: Path) -> None:
 
         # 目录条目必须以 "/" 结尾：否则标准解压工具会把它当 0 字节文件建出来，
         # 之后同名前缀下的文件必然报 "No such file or directory"。
-        dirs = set()
-        for name in names:
-            if name.endswith("/"):
-                dirs.add(name)
-                continue
-            parts = name.split("/")[:-1]
-            for i in range(1, len(parts) + 1):
-                dirs.add("/".join(parts[:i]) + "/")
-        missing_dirs = sorted(d for d in dirs if d not in set(names))
-        if missing_dirs:
-            common.fail("压缩包目录条目缺少结尾斜杠: " + ", ".join(missing_dirs[:5]))
+        _check_dir_entries(names)
     common.log(f"归档校验通过: {archive.name}")
+
+
+def check_pack_archive(archive: Path) -> None:
+    """补丁包产物校验：无顶层目录、只含 vs-plugins/、Lib/ 插件与 PACK_INFO.json。"""
+    archive = resolve_asset(archive)
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        if not names:
+            common.fail(f"补丁包是空的: {archive.name}")
+        plugin_root = "Lib/site-packages/vapoursynth/plugins/"
+        for name in names:
+            top = name.split("/")[0]
+            if top not in ("vs-plugins", "Lib", "PACK_INFO.json"):
+                common.fail(f"补丁包出现未预期的顶层条目: {name}")
+            if name.startswith("Lib/"):
+                rel = name.rstrip("/")
+                if not (rel.startswith(plugin_root.rstrip("/") + "/")
+                        or plugin_root.rstrip("/").startswith(rel)):
+                    common.fail(f"补丁包的 Lib/ 下只允许插件目录: {name}")
+            if any(part in name.split("/") for part in FORBIDDEN_PARTS):
+                common.fail(f"补丁包含禁止目录: {name}")
+        # 具体组件校验交给 manifests/packs/*.yml 的 provides，
+        # 这里只确认"确实装了东西"和"没有串包"。
+        files = [n for n in names if not n.endswith("/")]
+        if not any(n.startswith("vs-plugins/") or n.startswith(plugin_root) for n in files):
+            common.fail("补丁包没有往 vs-plugins/ 或插件目录放任何文件")
+        _check_dir_entries(names)
+    common.log(f"补丁包校验通过: {archive.name}")

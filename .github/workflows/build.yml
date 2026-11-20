@@ -64,10 +64,29 @@ jobs:
         shell: bash
         run: python -m build verify --asset "$(ls dist/out/*.zip | head -1)"
 
-      - name: 上传产物
+      - name: 上传基础包
         uses: actions/upload-artifact@v7
         with:
           name: mpv-playkit-pre-windows-x64
           path: dist/out/*
+          if-no-files-found: error
+          retention-days: 14
+
+      # 拓展包是叠加到基础包根目录的 overlay zip，体积另算，单独发一个 artifact
+      - name: 打拓展包
+        run: python -m build pack
+
+      - name: 校验拓展包
+        shell: bash
+        run: |
+          for f in dist/out/*-pack-*.zip; do
+            python -m build verify --pack --asset "$f"
+          done
+
+      - name: 上传拓展包
+        uses: actions/upload-artifact@v7
+        with:
+          name: mpv-playkit-pre-packs-windows-x64
+          path: dist/out/*-pack-*.zip
           if-no-files-found: error
           retention-days: 14

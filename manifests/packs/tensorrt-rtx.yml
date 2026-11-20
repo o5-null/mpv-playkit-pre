@@ -1,0 +1,74 @@
+# 拓展（挡位）补丁包：TensorRT-RTX
+#
+# 对应上游 mpv_PlayKit 的 "vsNV" 定位：拿 GPU 跑超分/补帧的推理那一档。
+# 但这里只带"插件 + 运行库"，不带模型——与 vsNV 一致，模型按需另下，
+# 否则一个包就上 GB，且用户装的档位各不相同。
+#
+# 为什么是 TensorRT-RTX 而不是完整 TensorRT：
+#   完整 TensorRT 的 CUDA 后端要 >1GB 的 CUDA 库；TRT-RTX 是官方"<200MB 的
+#   drop-in 替代"，支持 Turing(7.5)–Blackwell，靠 AOT+JIT 现场编译引擎。
+#   k7sfunc 侧对应后端是 core.trt_rtx（vsmlrt.py），与 core.trt 并存。
+#
+# 为什么用 AliceTeaParty 的重编译轮子（重要）：
+#   VapourSynth R80 起移除了 API 3，而上游 vs-mlrt（含 v16.4.test1）全系仍按
+#   API 3 编译，在 R82 上直接被拒（"uses API 3, which is no longer supported"），
+#   上游维护者明确表示不迁移（AmusementClub/vs-mlrt#171）。
+#   AliceTeaParty/vapoursynth-api4-wheels 把上游 vendored 源码（pinned revision
+#   761a313）改成 API 4 并发布 pip wheel，`core.trt_rtx` 的函数面与调用签名与
+#   上游一致，K7sfunc 侧脚本无需改动。实测（R82 + RTX 3080）：插件自动加载，
+#   Version() = TensorRT-RTX 1.5 / CUDA runtime 12.9。
+#
+# 目录布局由 wheel 自己决定，不能改：
+#   Lib/site-packages/vapoursynth/plugins/vsmlrt/vstrt_rtx.dll          <- 插件
+#   Lib/site-packages/vapoursynth/plugins/vsmlrt/vsmlrt-cuda/*.dll      <- 运行库
+# vstrt 运行时按 <本 dll 所在目录>\vsmlrt-cuda\tensorrt_rtx_<major>_<minor>.dll
+# 预加载（vs-mlrt vstrt/win32.cpp 的 loadDLLs），所以两者必须保持这个相对关系。
+
+schema: 1
+name: tensorrt-rtx
+title: TensorRT-RTX 补丁包（推理档）
+summary: >-
+  vs-mlrt 的 vstrt_rtx 插件（API 4 重编译）+ TensorRT-RTX 1.5 运行库，
+  让 K7sfunc 的 TRT-RTX 后端可用。不含模型：cugan / dpir / rife 需要自己下到
+  vs-plugins/ 对应目录。
+
+components:
+  # 插件本体：wheel 里只有 vapoursynth/plugins/vsmlrt/vstrt_rtx.dll（535 KB）。
+  - id: vstrt-rtx
+    kind: whl
+    summary: vs-mlrt TensorRT-RTX 插件（API 4 重编译）
+    upstream: AliceTeaParty/vapoursynth-api4-wheels
+    license: GPL-3.0-or-later
+    install_to: Lib/site-packages
+    exclude:
+      - "*.dist-info"
+      - "*.dist-info/*"
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/vstrt_rtx.dll
+
+  # 运行库：tensorrt_rtx_1_5.dll（206 MB）+ onnxparser + tensorrt_rtx.exe（builder）。
+  # 三个文件都在 vapoursynth/plugins/vsmlrt/vsmlrt-cuda/ 下，按原样展开即可。
+  - id: trt-rtx-libs
+    kind: whl
+    summary: TensorRT-RTX 1.5 运行库（tensorrt_rtx + onnxparser + builder）
+    upstream: AliceTeaParty/vapoursynth-api4-wheels
+    license: NVIDIA TensorRT License Agreement
+    install_to: Lib/site-packages
+    exclude:
+      - "*.dist-info"
+      - "*.dist-info/*"
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_rtx_1_5.dll
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_onnxparser_rtx_1_5.dll
+
+  # 许可与来源说明：NVIDIA 运行库可再分发，但必须随附许可原文。
+  - id: pack-attribution
+    kind: repo-files
+    summary: TensorRT-RTX 许可与来源说明
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    files:
+      - source: configs/packs/tensorrt-rtx-THIRD-PARTY.md
+        target: vs-plugins/tensorrt-rtx/THIRD-PARTY.md
+      - source: configs/packs/tensorrt-rtx-LICENSE.txt
+        target: vs-plugins/tensorrt-rtx/LICENSE.txt

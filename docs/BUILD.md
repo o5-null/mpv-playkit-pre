@@ -8,7 +8,8 @@
 
 所以本仓库的做法是：**把"配置"当上游同步，把"打包"当自己的活**。
 mpv 用 [shinchiro](https://github.com/shinchiro/mpv-winbuild-cmake) 的官方 Windows 构建，
-VapourSynth 运行时用 hooke007 的快速部署包，K7sfunc 用自维护 fork 的源码树——全部按 SHA-256 钉住。
+Python 与 VapourSynth 运行时用各自的官方件（python.org embed zip + PyPI wheel），
+K7sfunc 用自维护 fork 的源码树——全部按 SHA-256 钉住。
 
 ## 不变量（改代码前先读这几条）
 
@@ -26,16 +27,18 @@ VapourSynth 运行时用 hooke007 的快速部署包，K7sfunc 用自维护 fork
 
 ```
 manifests/components.yml   组件规则（kind / 装到哪 / exclude / license）
+manifests/packs/*.yml      拓展包清单（overlay zip 的组件，版本同样是 lock 的 <pack>/<id>）
 sources.lock.json          组件 pin（version / url / sha256 / size）
 build/common.py            路径、校验、解包、进程、版本号
 build/inputs.py            构建输入哈希（BUILD_INFO.inputs_hash）
 build/fetch.py             下载 + 哈希校验，缓存 .work/downloads/<id>/（codeload 走 curl 回退）
 build/assemble.py          装配 stage（组件 -> portable_config -> licenses）
 build/smoke.py             python imports / mpv --version / vf=vapoursynth
-build/package.py           确定性 zip + .sha256
+build/package.py           确定性 zip + .sha256（flat=True 时不带顶层目录，给补丁包用）
+build/pack.py              装配并打包拓展包（overlay zip）
 build/verify.py            stage 与 zip 的结构、禁止项、BUILD_INFO 校验
 build/sync.py              同步上游两个目录 + 写 upstream.json
-build/pin.py               下载新资产、算哈希、写 lock
+build/pin.py               下载新资产、算哈希、写 lock（--pack 走补丁包命名空间）
 ```
 
 ## 一次完整构建做了什么
@@ -129,10 +132,41 @@ python -m build.pin --id k7sfunc --version 1.9.0+pre.3 \
 `mpv-7z/archive/whl/file/git-tree`），然后 `build.pin` 写 lock。若需要新的安装方式，
 在 `build/assemble.py` 的 `INSTALLERS` 里加函数。
 
+## 拓展包（overlay zip）
+
+拓展包是叠加到基础包根目录的补丁包，**不带顶层目录**，解压即覆盖。清单在
+`manifests/packs/<name>.yml`，组件规则与基础包同一套 `kind`，版本仍写 `sources.lock.json`，
+键是 `<pack>/<id>`：
+
+```
+python -m build.pin --pack framegen --id vs-framegen --url <url>   # 钉版本
+python -m build pack --name framegen                               # 只打一个
+python -m build pack                                               # 打全部
+python -m build verify --pack --asset dist/out/<pack>.zip          # 校验产物
+```
+
+内容白名单（`build/pack.py: FORBIDDEN_REL` / `verify.check_pack_archive`）：
+
+```
+Lib/site-packages/vapoursynth/plugins/**   插件 DLL，VapourSynth 启动时自动加载（含子目录）
+vs-plugins/**                              引擎包、许可、第三方说明等资源
+PACK_INFO.json                             包名、组件清单、lock_digest
+```
+
+补丁包**不得**包含基础包的任何文件（`mpv.exe`、`python.exe`、`portable_config/`、
+`k7sfunc/` 等）；因为它是覆盖式解压，写错就毁基础包。另一个易错点是 wheel 里的
+`*.dist-info/` 目录条目——`exclude` 要同时写 `"*.dist-info"` 和 `"*.dist-info/*"`。
+
+**加一个拓展包**：写 `manifests/packs/<name>.yml`（`schema: 1`、`name`、`title`、
+`summary`、`components`），每个组件建议写 `provides`（产物里应出现的相对路径），
+`pack.py` 会逐条校验；然后 `pin --pack` 写 lock。
+
 ## CI
 
 `.github/workflows/build.yml`：push main / PR / 手动触发 → 构建 → 上传 artifact
-（14 天）。**故意不发布 release、不推 tag**，产物只走 artifact。
+（14 天）。**故意不发布 release、不推 tag**，产物只走 artifact。CI 会先上传基础包
+（`mpv-playkit-pre-windows-x64`），再打并上传拓展包（`mpv-playkit-pre-packs-windows-x64`，
+只含 `dist/out/*-pack-*.zip`）。
 
 `.github/workflows/sync-upstream.yml`：每天 UTC 03:00 跑 `python -m build sync`
 （退出码 3 = 上游无更新），有变化就用 bot 身份提交 `chore: 同步上游 hooke007/mpv_PlayKit`。

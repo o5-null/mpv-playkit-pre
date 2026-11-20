@@ -107,7 +107,7 @@ def _download(url: str, dest: Path, timeout: int = 300, retries: int = 3) -> Non
 
 def fetch(comp: dict, force: bool = False) -> Path:
     """返回本地缓存路径，保证 SHA-256 与清单一致。"""
-    dest = common.DOWNLOAD_DIR / comp["id"] / asset_filename(comp)
+    dest = common.DOWNLOAD_DIR / comp["id"].replace("/", "__") / asset_filename(comp)
     expected = comp["sha256"].strip().lower()
     if dest.exists() and not force:
         actual = common.sha256_file(dest)

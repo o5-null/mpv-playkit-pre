@@ -70,7 +70,45 @@
   将来加依赖包时只需新增包级清单（例如 `manifests/packs/*.yml`），不必改装配逻辑。
 - **现状**：`yt-dlp` 按此归入基础包（mpv 的 `ytdl_hook` 会在包根找它），不设 `disable`。
 
-## 已知坑
+## 10. 帧生成四引擎进 K7sfunc，插件与引擎包走拓展包（2026-11-21）
+
+- **决策**：DLSS-G / XeSS-FG / NVIDIA VFG / AMD FSR4 四个模块追加在 K7sfunc 的 `mod_memc.py`
+  （`DLSSG_NV` / `XESSFG_NV` / `VFG_NV` / `FSR4`，共用 `FRAMEGEN_HUB`），配套脚本放 fork 的
+  `mpv/portable_config/vs/`（`MEMC_DLSSG_NV.vpy` 等四个），由 `components.yml` 的 `paths` 映射进包；
+  插件 DLL 与引擎包不进基础包，由 `manifests/packs/framegen.yml` 提供（解压到包根，落到 `vs-plugins/`
+  与 `vs-plugins/bin/<引擎>/`）。fork commit `e4217b5`，版本 `1.9.0+pre.4`。
+- **原因**：引擎本体是第三方运行库 + sm86 解锁代理，按 NVIDIA RTX SDKs License 不能当独立产品分发，
+  合计 43 MB；模块与脚本只是接线，属于算法层，按第 5 条进 fork。
+- **代价**：基础包挂上这四个脚本时，缺插件会 `vs.Error`；缺引擎包则 DLSS-G / XeSS-FG 退回无解锁能力，
+  VFG / FSR4 直接报错（这两个包不在公开 zip 里）。vpy 的引擎包探测必须同时兼容
+  `vs-plugins/bin/<引擎>` 与 `vs-plugins/<引擎>` 两种布局——插件默认只在 `<DLL 目录>\<引擎>` 找，
+  `bin/` 布局要靠显式 `proxy_dir` 参数。
+
+## 11. 拓展包做成 overlay zip，插件与资源分两个目录（2026-11-21）
+
+- **决策**：拓展包（"挡位补丁包"）是**不带顶层目录的 overlay zip**，解压到基础包根即叠加；
+  里面只允许两类内容——插件走 `Lib/site-packages/vapoursynth/plugins/**`，
+  资源（引擎包、许可文本）走 `vs-plugins/**`，另加一份 `PACK_INFO.json` 说明包名与文件清单。
+  清单在 `manifests/packs/<name>.yml`，版本仍进 `sources.lock.json`（键 `<pack>/<id>`）；
+  `python -m build pack [--name <pack>]` 装配并出 zip，`build/verify.py: check_pack_archive` 校验。
+- **原因**：VS R82 起插件只在 `Lib/site-packages/vapoursynth/plugins/`（含子目录）被自动加载，
+  放 `vs-plugins/` 或设 `VAPOURSYNTH_PLUGIN_PATH` 都无效；而引擎包与模型必须留在
+  `vs-plugins/` 下（`MEMC_*.vpy` 与 `vstrt` 的 `dllDir()/vsmlrt-cuda/` 都是按相对路径查）。
+  两类东西机制不同、位置不同，混在一个目录会同时坏掉。overlay 而不重打基础包，是因为
+  基础包 360 MB、帧生成引擎占 43 MB、TRT-RTX 运行库占 85 MB，多数人只要其一。
+- **API 3 问题**：VS R80 起 `dropped api3 support`，而 `AmusementClub/vs-mlrt` 的官方二进制
+  （含最新 test 版）全部按 API 3 编译，上游 issue #171 明确拒绝迁移。因此 TRT-RTX 包改用
+  [AliceTeaParty/vapoursynth-api4-wheels](https://github.com/AliceTeaParty/vapoursynth-api4-wheels)
+  的轮子：该仓库 vendored 上游源码树、在仓内改成 API 4、跟 `vs-mlrt-v16.x` 标签持续重打包，
+  版本号带 `+alice.1`，钉 `vs-trt-rtx-cu129` + `vs-tensorrt-rtx-cu129` 成对更新。
+- **实测**（R82 + RTX 3080）：叠加两个包后 `['vdlssg','vxessfg','vvfg','vfsr4']` 与
+  `['trt_rtx']` 全部就位，`core.trt_rtx.Version()` 报 TensorRT-RTX `10500` / CUDA runtime `12090`，
+  `DeviceProperties()` 认出 `NVIDIA GeForce RTX 3080`。
+- **代价**：补丁包内容依赖上游 wheel 的目录布局（`plugins/vsmlrt/` 与 `vsmlrt-cuda/`），
+  换版本时要重新核布局；单个第三方维护者（AliceTeaParty）若停更，需要退回"自己编 API4"或
+  "把 VS 钉回 R79"。`pack.py` 的 `FORBIDDEN_REL` 会阻止补丁包覆盖 `mpv.exe`、`python.exe`、
+  `portable_config/`、`k7sfunc/` 等基础包关键路径。
+
 
 - **`vf=vapoursynth` 的路径**：mpv 滤镜参数用 `:` 分隔，Windows 盘符会被当成参数分隔符。冒烟测试因此 `cwd` 到 stage 后用相对路径。
 - **`python3xx._pth` 模式下 `PYTHONPATH` 无效**：`vs-scripts/` 是 `._pth` 里写死的搜索路径，所以 `k7sfunc` 要么进 `Lib/site-packages`，要么进 `vs-scripts/`。
@@ -83,3 +121,19 @@
 - **codeload 经代理时 urllib 会握手中断**：`build/fetch.py` 在 urllib 三次失败后回退 `curl`。
 - **本地跑完 `build sync` 后 `git status` 会冒出几百个 "M"**：Git for Windows 默认 `core.autocrlf=true`，而 sync 直接写入 tarball 的 LF 字节，索引里的 stat 缓存因此失效。文件内容其实一致（`git hash-object` 与 `HEAD:` 相同），`git add -A` 刷一次索引即恢复干净；本仓库已设 `core.autocrlf=false` 避免该现象。CI 上跑的是 Linux runner（默认不转换），不受影响。
 - **sync 工作流与人工推送会抢 main**：`git push` 被拒后先 `git pull --rebase --autostash origin main` 再重试，最多三次。
+- **vpy 里的 `__file__` 定位必须在 `if not hasattr(core, "<插件>"):` 之外**：发行包里插件由 `vs-plugins/` 自动加载，
+  `hasattr` 为真、整块不执行；把 `_here = os.path.dirname(os.path.abspath(__file__))` 写在块内，
+  后面新加的引擎包探测段就会 `NameError: _here`。
+- **帧生成三件事**：一个进程只支持一种帧尺寸（换分辨率要重启）；NGX 每进程只能初始化一次（`vdlssg` 与 `vxessfg`
+  不能同进程）；插件只改帧数不改 fps，自己拼 vpy 时要 `AssumeFPS`（模块已做）。
+- **`dlss45` / `xessfg` 引擎包里的 `dlssg_sm86/logs/` 必须预先存在**：代理不建目录，缺了是零日志静默失败。
+- **VS R80 起不再支持 API 3 插件**：`AmusementClub/vs-mlrt` 的官方二进制全是 API 3，在 R82 上直接
+  `Plugin ... uses API 3, which is no longer supported.`（在 R79 上只是"deprecated"警告）。要么用
+  AliceTeaParty 的 API4 移植轮子，要么把 VS 钉回 R79 并显式 `LoadPlugin`。
+- **插件只有放进 `Lib/site-packages/vapoursynth/plugins/` 才会被自动加载**（R82 会递归扫描子目录，
+  所以 `plugins/vsmlrt/` 里放 `vstrt_rtx.dll` 有效）；`vs-plugins/` 与 `VAPOURSYNTH_PLUGIN_PATH`
+  都不参与加载。R79 更旧：该目录不自动扫描，只能写 `HKCU\SOFTWARE\VapourSynth` 或显式加载。
+- **wheel 的 `*.dist-info` 会留下目录条目**：`exclude: ["*.dist-info/*"]` 只过滤文件，zip 里仍会有
+  `*.dist-info/` 目录，补丁包校验会因为"不明目录"失败——exclude 里要同时写 `"*.dist-info"`。
+- **overlay zip 的目录条目同样要 `/` 结尾**，且校验时的白名单判断要先 `rstrip("/")` 再比前缀，
+  否则 `Lib/`、`Lib/site-packages/` 这些前缀链会被误判成"越界路径"。

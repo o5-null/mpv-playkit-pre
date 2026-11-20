@@ -86,6 +86,8 @@ def install_archive(stage: Path, comp: dict, archive: Path) -> None:
     install_to = comp.get("install_to", ".")
     dest_root = stage / install_to
     excludes = comp.get("exclude") or []
+    # flatten：把树里的文件按文件名摊平到 install_to（用于 wheel 里的 DLL 集合）
+    flatten = bool(comp.get("flatten"))
     tmp = common.make_temp_dir(f"{comp['id']}-")
     common.extract(archive, tmp, comp.get("extract", "7z"))
     count = 0
@@ -93,8 +95,10 @@ def install_archive(stage: Path, comp: dict, archive: Path) -> None:
         rel = src.relative_to(tmp).as_posix()
         if common.match_any(rel, excludes):
             continue
-        target = dest_root / rel
+        target = dest_root / (src.name if flatten else rel)
         if src.is_dir():
+            if flatten:
+                continue
             target.mkdir(parents=True, exist_ok=True)
             continue
         target.parent.mkdir(parents=True, exist_ok=True)

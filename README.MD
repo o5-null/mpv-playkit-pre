@@ -42,6 +42,24 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 > 首次使用 ARTCNN / CUGAN / RIFE 这类 GPU 算法需要模型文件（放在 `vs-plugins/models/`）。
 > 默认的 `auto` 预设会按顺序逐级回退，缺模型只会降级并在 OSD 提示，不会黑屏。
 
+## 拓展包（挡位补丁包）
+
+基础包只保证"能播 + VapourSynth 链路通"。GPU 帧生成与 TensorRT 推理这类**体积大、依赖
+第三方运行库**的能力，放在独立的补丁包里按需叠加——**解压到基础包根目录覆盖即可**，不用重下整个包：
+
+| 补丁包 | 内容 | 解压后 | 需要的硬件 |
+| --- | --- | --- | --- |
+| `-pack-framegen.zip` | DLSS-G / XeSS-FG / VFG / FSR4 四个插件 + `dlss45`、`xessfg` 引擎包 | ~81 MB | RTX 20/30 系（sm86 解锁）或支持对应 SDK 的卡 |
+| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 | ~211 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+
+- 两个包都是**覆盖式**的：里面只有 `Lib/site-packages/vapoursynth/plugins/**`、
+  `vs-plugins/**` 和 `PACK_INFO.json`，不会碰到 `mpv.exe`、`python.exe`、`portable_config/`，
+  因此可以随时删掉（按 `PACK_INFO.json` 里列的文件逐个删）或换新版本。
+- 插件放 `Lib/site-packages/vapoursynth/plugins/` 由 VapourSynth 自动加载；
+  引擎包留在 `vs-plugins/bin/<引擎>/`，由 K7sfunc fork 的 `MEMC_*.vpy` 按路径查找。
+- 模型仍然不进包（cugan / dpir / rife 动辄几十上百 MB）：见 `docs/TOOLKIT.md`。
+
+
 ## 构建
 
 ```bash
@@ -57,6 +75,7 @@ python -m build fetch      # 下载并校验全部组件
 python -m build assemble   # 装配 dist/stage/
 python -m build smoke      # python/mpv/vapoursynth 冒烟测试
 python -m build package    # 打确定性 zip
+python -m build pack       # 打全部补丁包（--name framegen 只打一个）
 python -m build verify --stage
 python -m build verify --asset dist/out
 ```

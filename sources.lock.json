@@ -2,12 +2,19 @@
   "schema": 1,
   "platform": "windows-x64",
   "components": {
+    "framegen/vs-framegen": {
+      "version": "0.1.0",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.1.0/vs-framegen-0.1.0-mpv-lazy.zip",
+      "sha256": "2c0670452713fc117a66f28fb5634778b3f83f22ff026da026fb45a6448a9128",
+      "size": 43135442,
+      "pinned_at": "2026-11-20T16:37:45Z"
+    },
     "k7sfunc": {
-      "version": "1.9.0+pre.3",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/e38df9c",
-      "sha256": "caf11fb95374982b75af074a6d045558d38665dcedfc7e72fa94369a157fd9b0",
-      "size": 141323,
-      "pinned_at": "2026-11-20T15:39:04Z"
+      "version": "e4217b5b051cbca649dca3b40ddd5004a5f9fbaa",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/e4217b5b051cbca649dca3b40ddd5004a5f9fbaa",
+      "sha256": "e215fee6aa7173113de3cf239c168056c6826dfdf8ad1510d3e9fe4312979c69",
+      "size": 147943,
+      "pinned_at": "2026-11-20T16:26:08Z"
     },
     "mpv": {
       "version": "20261111-git-bcde6b93cc",
@@ -22,6 +29,20 @@
       "sha256": "d012f3aa29cf07436dae8aea1fec0fd195c2612a0b059b1f915ae0afb9ad1f62",
       "size": 13740486,
       "pinned_at": "2026-11-20T15:26:43Z"
+    },
+    "tensorrt-rtx/trt-rtx-libs": {
+      "version": "16.2.2+alice.1",
+      "url": "https://github.com/AliceTeaParty/vapoursynth-api4-wheels/releases/download/vs-mlrt-v16.2.6%2Balice.1/vs_tensorrt_rtx_cu129-16.2.2%2Balice.1-py3-none-win_amd64.whl",
+      "sha256": "038a09b3ebc1c17f517bbb09b13ad60195a94182c01a050f75581b93cbd72601",
+      "size": 84804530,
+      "pinned_at": "2026-11-20T17:03:58Z"
+    },
+    "tensorrt-rtx/vstrt-rtx": {
+      "version": "16.2.2+alice.1",
+      "url": "https://github.com/AliceTeaParty/vapoursynth-api4-wheels/releases/download/vs-mlrt-v16.2.6%2Balice.1/vs_trt_rtx_cu129-16.2.2%2Balice.1-py3-none-win_amd64.whl",
+      "sha256": "dfbba8ac2095821c8e08168dacae00f9396541cd451ef7012e63ffd1cd213865",
+      "size": 231284,
+      "pinned_at": "2026-11-20T17:03:47Z"
     },
     "vapoursynth": {
       "version": "R82",
