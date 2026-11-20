@@ -150,8 +150,9 @@
 
 ## 14. TRT-RTX 包带模型与 Python 依赖，并对 `trt_rtx` 强制静态引擎（2026-11-21）
 
-- **决策**：`tensorrt-rtx` 包除插件与运行库外，再带 `cugan`（3 个）与 `dpir`（4 个）
-  模型，以及 7 个 Python 轮子（`onnx`、`onnxconverter_common`、`numpy`、`protobuf`、
+- **决策**：`tensorrt-rtx` 包除插件与运行库外，再带 `cugan`（3 个）与 `dpir` 的去块
+  两个模型（`drunet_deblocking_color` / `drunet_deblocking_grayscale`），以及 7 个
+  Python 轮子（`onnx`、`onnxconverter_common`、`numpy`、`protobuf`、
   `typing_extensions`、`ml_dtypes`、`packaging`）；K7sfunc 侧 `_trt_backend` 对
   `core.trt_rtx` 强制 `static_shape=True` 并丢弃 `min/opt/max_shapes`。
 - **原因**：vstrt 建引擎是在 Python 里 `import onnx` 读图、推形状、转 fp16，而包里是
@@ -161,9 +162,13 @@
   必崩在 `cudnn_graph_utils.h:421 CHECK(false) failed. cuDNN graph compilation failed.`
   （`enqueueV3` 里 Myelin `shapeChangeHelper`），静态引擎三用例（CUGAN 静态/动态、
   DPIR）在 RTX 3080 上全部出帧。
-- **代价**：包体从 85 MB 涨到 606.5 MB（dpir 四个 `drunet_*.onnx` 解压后合计 522 MB，
-  各约 130 MB）；静态引擎按分辨率建，换尺寸要重建一次（引擎缓存在
-  `vsmlrt` 的 engine 目录）。若要压体积，把 `models-dpir` 单独拆一个包即可。
+- **代价**：包体从 85 MB 涨到约 365 MB；带上全部四个 `drunet_*.onnx`（各约 130 MB，
+  合计 522 MB）会到 606 MB，因此只装 DPIR_DBLK_NV 用得到的两个去块模型（model 2/3），
+  去噪用的 `drunet_gray` / `drunet_color` 由用户自己丢进 `vsmlrt/models/dpir/`。
+  静态引擎按分辨率建，换尺寸要重建一次（引擎缓存在 `vsmlrt` 的 engine 目录）。
+- **不考虑 7z 打包**：实测 130.6 MB 的 `drunet_deblocking_color.onnx`，deflate6/9 都是
+  121.3 MB（−7.1%），LZMA2 `preset=6` 120.6 MB、`9|PRESET_EXTREME` 120.5 MB（−7.7%）——
+  整个包装换成 7z 只省约 5 MB，却要求用户装 7-Zip 才能解，代价不值。
 - **细节**：这 7 个 Python 轮子进包时**不能删 `*.dist-info`**——`onnx.__version__` 是读分发包
   元数据得来的，删掉后变成 `'unknown'`，`onnxconverter_common` 里的 `packaging.Version()`
   直接抛 `InvalidVersion: Invalid version: 'unknown'`（实测只在真实包树暴露，overlay 测试树

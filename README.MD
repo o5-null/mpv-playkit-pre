@@ -51,7 +51,7 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 | 补丁包 | 内容 | 解压后 | 需要的硬件 |
 | --- | --- | --- | --- |
 | `-pack-framegen.zip` | DLSS-G / XeSS-FG / VFG / FSR4 四个插件 + `dlss45`、`xessfg` 引擎包 | ~81 MB | RTX 20/30 系（sm86 解锁）或支持对应 SDK 的卡 |
-| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan/dpir 模型 + onnx 等 Python 依赖 | ~607 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan/dpir 去块模型 + onnx 等 Python 依赖 | ~365 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
 
 - 两个包都是**覆盖式**的：里面只有 `Lib/site-packages/vapoursynth/plugins/**`、
   `Lib/site-packages/` 下的 Python 依赖、`vs-plugins/**` 和 `PACK_INFO.json`，不会碰到

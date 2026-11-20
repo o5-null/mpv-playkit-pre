@@ -148,16 +148,18 @@ components:
 
   - id: models-dpir
     kind: archive
-    summary: DPIR 降噪/去块模型（drunet 四个）
+    summary: DPIR 去块模型（drunet deblocking 的 color / grayscale 两个）
     upstream: hooke007/dotfiles
     license: MIT
     extract: 7z
     install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir
+    # 上游包里有四个模型，各约 130 MB；只带 DPIR_DBLK_NV 用得到的两个
+    # （model 2/3 -> deblocking_grayscale / deblocking_color），去噪用的
+    # drunet_gray / drunet_color 由用户自己放进同一目录。
+    exclude: ["drunet_color.onnx", "drunet_gray.onnx"]
     provides:
-      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_color.onnx
       - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_color.onnx
       - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_grayscale.onnx
-      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_gray.onnx
 
   # 许可与来源说明：NVIDIA 运行库可再分发，但必须随附许可原文。
   - id: pack-attribution

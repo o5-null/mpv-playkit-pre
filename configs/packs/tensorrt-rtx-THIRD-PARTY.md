@@ -1,6 +1,6 @@
 # 第三方组件与许可（tensorrt-rtx 补丁包）
 
-本补丁包提供运行库、开源插件、onnx 等 Python 依赖，以及 cugan / dpir 两组模型权重；
+本补丁包提供运行库、开源插件、onnx 等 Python 依赖，以及 cugan 与 dpir 去块两组权重；
 把 zip 解压到基础包根后，下列文件会出现在
 `Lib/site-packages/vapoursynth/plugins/vsmlrt/`、`Lib/site-packages/`（Python 包）
 与 `vs-plugins/tensorrt-rtx/` 下。
@@ -14,7 +14,7 @@
 | `vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_onnxparser_rtx_1_5.dll` | 同上 | NVIDIA TensorRT License Agreement |
 | `vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_rtx.exe` | 同上（TRT-RTX 的引擎构建器） | NVIDIA TensorRT License Agreement |
 | `vapoursynth/plugins/vsmlrt/models/cugan/*.onnx` | [hooke007/dotfiles](https://github.com/hooke007/dotfiles/releases/tag/mpv_addones) 的 `vs-k7sfunc.0_0_7.cugan-models.7z`（real-cugan 权重，非 NVIDIA 所有） | MIT |
-| `vapoursynth/plugins/vsmlrt/models/dpir/*.onnx` | 同上的 `vs-k7sfunc.0_2_0.dpir-models.7z`（DPIR / DRUNet 权重） | MIT |
+| `vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_*.onnx` | 同上的 `vs-k7sfunc.0_2_0.dpir-models.7z`（DPIR / DRUNet 权重，只取去块两个） | MIT |
 | `onnx` / `onnxconverter_common` / `numpy` / `protobuf` / `typing_extensions` / `ml_dtypes` / `packaging` | PyPI 官方发布 | Apache-2.0 / MIT / BSD-3-Clause / PSF-2.0 |
 
 许可原文见同目录 `LICENSE.txt`（NVIDIA）与基础包 `licenses/`（vs-mlrt 侧）。
@@ -37,10 +37,13 @@ VapourSynth R80 起移除 API 3，官方 vs-mlrt（含最新的 `v16.4.test1`）
 
 ## 模型在哪
 
-包内已带 cugan（超分）与 dpir（降噪/去块）两组权重，直接对应 K7sfunc 的查找路径：
+包内已带 cugan（超分）与 dpir 去块两个权重，直接对应 K7sfunc 的查找路径：
 
 - 超分：`Lib/site-packages/vapoursynth/plugins/vsmlrt/models/cugan/*.onnx`
-- 降噪/去块：`Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_*.onnx`
+- 去块：`.../vsmlrt/models/dpir/drunet_deblocking_grayscale.onnx` 与 `drunet_deblocking_color.onnx`
+
+DPIR 去噪用的 `drunet_gray.onnx` / `drunet_color.onnx`（各约 130 MB，上游同包提供）没有放进补丁包，
+需要的话从 `hooke007/dotfiles` 的 `mpv_addones` 资产自取，丢进同一个 `dpir/` 目录即可。
 
 其余模型仍要自己放到 `vs-plugins/` 或 vsmlrt 的 `models/` 对应目录：
 

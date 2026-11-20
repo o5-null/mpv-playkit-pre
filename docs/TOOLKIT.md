@@ -139,9 +139,10 @@ K7sfunc 的模型和 GPU 组件不在源码里。分三种情况：
 - **基础包自带**：`akarin`/`mvtools`/`fmtconv`/`zsmooth`/`bm3d`/`bwdif`/`vivtc`/`tivtc`/
   `vszip`/`znedi3` 这 10 个插件（来自 PyPI 的 API 4 轮子），落在
   `Lib/site-packages/vapoursynth/plugins/`，开箱即可用。
-- **`tensorrt-rtx` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + `cugan` / `dpir` 模型
-  （`vsmlrt/models/{cugan,dpir}/*.onnx`）+ `onnx` 等 Python 依赖，
-  `CUGAN_NV` / `DPIR_DBLK_NV` 装完即可出帧。
+- **`tensorrt-rtx` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + `cugan` 三个超分模型
+  与 DPIR 的两个去块模型（`vsmlrt/models/{cugan,dpir}/*.onnx`）+ `onnx` 等 Python 依赖，
+  `CUGAN_NV` / `DPIR_DBLK_NV` 装完即可出帧。DPIR 去噪用的 `drunet_gray` / `drunet_color`
+  不在包里，需要就去 `hooke007/dotfiles` 的 `mpv_addones` 资产里取，丢进同一个 `dpir/` 目录。
 - **仍需自己放**（按 K7sfunc 文档的约定，放在 mpv 根目录）：
 
 ```
