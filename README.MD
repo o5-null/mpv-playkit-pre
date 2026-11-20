@@ -17,6 +17,7 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 | `python.exe`、`Lib/`、`python3*.dll` | 官方嵌入式 CPython 3.15 | [python.org](https://www.python.org/downloads/windows/) |
 | `vsscript.dll`、`libvapoursynth*.dll`、`Lib/site-packages/vapoursynth/` | 官方 VapourSynth R82 | [PyPI vapoursynth](https://pypi.org/project/VapourSynth/) |
 | `portable.vs`、`vs-plugins/`、`vs-scripts/` | 便携标记与插件/脚本目录 | 本仓库 + wheel |
+| `Lib/site-packages/vapoursynth/plugins/` | 10 个常用 VS 插件（akarin、mvtools、fmtconv、zsmooth、bm3d、bwdif、vivtc、tivtc、vszip、znedi3） | [PyPI vapoursynth-*](https://pypi.org/search/?q=vapoursynth) |
 | `portable_config/` | 完整 mpv 配置、uosc 界面、脚本、shader、字体、lua | [hooke007/mpv_PlayKit](https://github.com/hooke007/mpv_PlayKit) |
 | `Lib/site-packages/k7sfunc/` | 超分 / 插帧 / 降噪 / 去色带算法 + `mod_playkit` 预设层 | [o5-null/K7sfunc](https://github.com/o5-null/K7sfunc) 源码树 |
 | `portable_config/scripts/k7f_playkit.lua` | 预设前端（OSD 提示 + 滤镜切换） | 同上 |
@@ -50,14 +51,16 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 | 补丁包 | 内容 | 解压后 | 需要的硬件 |
 | --- | --- | --- | --- |
 | `-pack-framegen.zip` | DLSS-G / XeSS-FG / VFG / FSR4 四个插件 + `dlss45`、`xessfg` 引擎包 | ~81 MB | RTX 20/30 系（sm86 解锁）或支持对应 SDK 的卡 |
-| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 | ~211 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan/dpir 模型 + onnx 等 Python 依赖 | ~607 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
 
 - 两个包都是**覆盖式**的：里面只有 `Lib/site-packages/vapoursynth/plugins/**`、
-  `vs-plugins/**` 和 `PACK_INFO.json`，不会碰到 `mpv.exe`、`python.exe`、`portable_config/`，
-  因此可以随时删掉（按 `PACK_INFO.json` 里列的文件逐个删）或换新版本。
+  `Lib/site-packages/` 下的 Python 依赖、`vs-plugins/**` 和 `PACK_INFO.json`，不会碰到
+  `mpv.exe`、`python.exe`、`vapoursynth/` 本体，因此可以随时删掉（按 `PACK_INFO.json`
+  里列的文件逐个删）或换新版本。
 - 插件放 `Lib/site-packages/vapoursynth/plugins/` 由 VapourSynth 自动加载；
   引擎包留在 `vs-plugins/bin/<引擎>/`，由 K7sfunc fork 的 `MEMC_*.vpy` 按路径查找。
-- 模型仍然不进包（cugan / dpir / rife 动辄几十上百 MB）：见 `docs/TOOLKIT.md`。
+- `tensorrt-rtx` 自带 cugan（超分）与 dpir（降噪/去块）模型，其余模型（rife 补帧、
+  ACNet / ArtCNN）仍需自备：见 `docs/TOOLKIT.md`。
 
 
 ## 构建

@@ -149,16 +149,22 @@ python -m build verify --pack --asset dist/out/<pack>.zip          # 校验产�
 
 ```
 Lib/site-packages/vapoursynth/plugins/**   插件 DLL，VapourSynth 启动时自动加载（含子目录）
+Lib/site-packages/<其它>/**                补丁包自己的 Python 运行依赖（onnx/numpy 等）
 vs-plugins/**                              引擎包、许可、第三方说明等资源
 portable_config/**                         与基础包不同的配置（解压时直接覆盖）
 PACK_INFO.json                             包名、组件清单、lock_digest
 ```
 
+`Lib/site-packages/` 下**除了 `vapoursynth/` 本体**都可以放——补丁包常需要自己的 Python 依赖
+（例如 TRT-RTX 建引擎要 `onnx`），基础包的 embed Python 没有 pip，只能随包落进 site-packages。
+
 补丁包**可以**覆盖 `portable_config/` 下的配置——如果需要不同的.conf/脚本，直接放进补丁包，
 解压即生效。但**不得**包含基础包的运行时本体（`mpv.exe`、`python.exe`、`vsscript.dll`、
 `Lib/site-packages/vapoursynth/vapoursynth.pyd`、`k7sfunc/` 等），因为覆盖式解压写错就毁基础包。
 另一个易错点是 wheel 里的 `*.dist-info/` 目录条目——`exclude` 要同时写 `"*.dist-info"` 和
-`"*.dist-info/*"`。
+`"*.dist-info/*"`。但**补丁包自己的 Python 依赖要留着 `*.dist-info`**：包是拿元数据读版本号的，
+删掉后 `onnx.__version__` 会变成 `'unknown'`，`onnxconverter_common` 一调 `packaging.Version()`
+就抛 `InvalidVersion`。
 
 **加一个拓展包**：写 `manifests/packs/<name>.yml`（`schema: 1`、`name`、`title`、
 `summary`、`components`），每个组件建议写 `provides`（产物里应出现的相对路径），

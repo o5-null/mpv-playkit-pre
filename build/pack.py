@@ -116,12 +116,23 @@ def verify_pack_stage(stage: Path, selected: list[dict] | None = None) -> None:
     for child in stage.iterdir():
         if child.name not in ALLOWED_TOP:
             common.fail(f"补丁包出现未预期的顶层条目: {child.name}")
-    # Lib/ 只允许放插件目录，避免覆盖基础包的 Python 侧本体
+    # Lib/ 允许放插件目录与 site-packages 里的纯 Python 包（补丁包的运行依赖，如 onnx/numpy），
+    # 但不许碰 vapoursynth 本体——那属于基础包。
     plugin_root = "Lib/site-packages/vapoursynth/plugins"
-    stray = [p.relative_to(stage).as_posix() for p in (stage / "Lib").rglob("*")
-             if p.is_file() and not p.relative_to(stage).as_posix().startswith(plugin_root + "/")]
+    site_root = "Lib/site-packages"
+    stray = []
+    for p in (stage / "Lib").rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(stage).as_posix()
+        if rel.startswith(plugin_root + "/"):
+            continue
+        if rel.startswith(site_root + "/") and not rel.startswith(site_root + "/vapoursynth/"):
+            continue
+        stray.append(rel)
     if stray:
-        common.fail("补丁包 Lib/ 下只允许插件目录，出现了:\n  " + "\n  ".join(stray[:10]))
+        common.fail("补丁包 Lib/ 下只允许插件目录和 site-packages 的 Python 包，出现了:\n  "
+                    + "\n  ".join(stray[:10]))
     missing: list[str] = []
     for comp in selected or []:
         for rel in comp.get("provides") or []:

@@ -87,7 +87,8 @@
 ## 11. 拓展包做成 overlay zip，插件与资源分两个目录（2026-11-21）
 
 - **决策**：拓展包（"挡位补丁包"）是**不带顶层目录的 overlay zip**，解压到基础包根即叠加；
-  里面允许三类内容——插件走 `Lib/site-packages/vapoursynth/plugins/**`，
+  里面允许四类内容——插件走 `Lib/site-packages/vapoursynth/plugins/**`，补丁包自己的 Python 运行依赖
+  （如 `onnx`、`numpy`）走 `Lib/site-packages/` 下除 `vapoursynth/` 本体以外的位置，
   资源（引擎包、许可文本）走 `vs-plugins/**`，与基础包不同的配置走 `portable_config/**`
   （解压时直接覆盖，不做开关层），另加一份 `PACK_INFO.json` 说明包名与文件清单。
   清单在 `manifests/packs/<name>.yml`，版本仍进 `sources.lock.json`（键 `<pack>/<id>`）；
@@ -129,6 +130,48 @@
   `NVIDIA/TensorRT` 仓的 `include/`，VapourSynth 头文件在 wheel 的 `vapoursynth/include`，
   构建步骤照抄上游 `.github/workflows/windows-trt_rtx.yml`，产物发本仓 release 再按 sha256 钉住；
   次选是把 VS 钉回 R79 并显式 `LoadPlugin`（实测可用，代价是失去 R80–R82 的 GPU 修复）。
+
+## 13. 基础包自带 VapourSynth 插件生态（2026-11-21）
+
+- **决策**：`manifests/components.yml` 在 `vapoursynth` 之后补 10 个 PyPI 上的
+  `vapoursynth-*` 轮子（`akarin`、`mvtools`、`fmtconv`、`zsmooth`、`bm3d`、`bwdif`、
+  `vivtc`、`tivtc`、`vszip`、`znedi3`），`kind: whl` + `install_to: Lib/site-packages`，
+  exclude 掉 `*.dist-info`；轮子里的 DLL 落在 `vapoursynth/plugins/`（含子目录），
+  R82 递归扫描即加载。
+- **原因**：K7sfunc 有 69 处 `_check_plugin`（`akarin`/`fmtc`/`mv`/`zsmooth`/`bwdif`/
+  `znedi3`/`vszip`/`tivtc`/`vivtc`…），而此前的基础包插件目录只有 VSScript 自带的
+  `avscompat.dll`——连 `CUGAN_NV` / `DPIR_DBLK_NV` 都会在第一步
+  `ModuleNotFoundError: ... 缺失插件，检查项目 akarin` 上停住，绝大多数模块跑不起来。
+  PyPI 是唯一现成的 API 4 二进制来源（`Jaded-Encoding-Thaumaturgy/vs-wheels` 只有
+  fmtconv/ffms2/mlrt）。
+- **故意不带的**：`vapoursynth-bilateralgpu`（47 MB，只服务 `bilateralgpu_rtc` 一个模块）；
+  `nnedi3`/`eedi2`/`miscfilters`/`vsutil`（PyPI 无此包）。
+- **代价**：基础包体积 +约 65 MB；插件版本进了 `sources.lock.json`，升级要重钉。
+
+## 14. TRT-RTX 包带模型与 Python 依赖，并对 `trt_rtx` 强制静态引擎（2026-11-21）
+
+- **决策**：`tensorrt-rtx` 包除插件与运行库外，再带 `cugan`（3 个）与 `dpir`（4 个）
+  模型，以及 7 个 Python 轮子（`onnx`、`onnxconverter_common`、`numpy`、`protobuf`、
+  `typing_extensions`、`ml_dtypes`、`packaging`）；K7sfunc 侧 `_trt_backend` 对
+  `core.trt_rtx` 强制 `static_shape=True` 并丢弃 `min/opt/max_shapes`。
+- **原因**：vstrt 建引擎是在 Python 里 `import onnx` 读图、推形状、转 fp16，而包里是
+  embed Python（无 pip、无 site-packages 依赖）；实测缺 `onnx` 时 `CUGAN_NV` 直接
+  `ModuleNotFoundError: No module named 'onnx'`，缺 `typing_extensions`/`ml_dtypes`/
+  `onnxconverter_common` 也是一层层挡在同一个函数里。动态形状引擎在 cugan 这类网络上
+  必崩在 `cudnn_graph_utils.h:421 CHECK(false) failed. cuDNN graph compilation failed.`
+  （`enqueueV3` 里 Myelin `shapeChangeHelper`），静态引擎三用例（CUGAN 静态/动态、
+  DPIR）在 RTX 3080 上全部出帧。
+- **代价**：包体从 85 MB 涨到 606.5 MB（dpir 四个 `drunet_*.onnx` 解压后合计 522 MB，
+  各约 130 MB）；静态引擎按分辨率建，换尺寸要重建一次（引擎缓存在
+  `vsmlrt` 的 engine 目录）。若要压体积，把 `models-dpir` 单独拆一个包即可。
+- **细节**：这 7 个 Python 轮子进包时**不能删 `*.dist-info`**——`onnx.__version__` 是读分发包
+  元数据得来的，删掉后变成 `'unknown'`，`onnxconverter_common` 里的 `packaging.Version()`
+  直接抛 `InvalidVersion: Invalid version: 'unknown'`（实测只在真实包树暴露，overlay 测试树
+  带 dist-info 时正常）。
+- **附带修好的三处上游 bug**（`_external/vsmlrt.py`）：`get_plugins_path()` 对 API 4 的
+  `str` 路径调 `.decode()`；`tensorrt_rtx()` 调 `get_engine_path()` 少传 `int8`/`fp8`；
+  `tensorrt_rtx()` 给 builder 下发 `-CUDNN`（TRT-RTX 只认 `EDGE_MASK_CONVOLUTIONS` /
+  `JIT_CONVOLUTIONS`，会报 `Unknown tactic source: CUDNN`）。
 
 
 - **`vf=vapoursynth` 的路径**：mpv 滤镜参数用 `:` 分隔，Windows 盘符会被当成参数分隔符。冒烟测试因此 `cwd` 到 stage 后用相对路径。

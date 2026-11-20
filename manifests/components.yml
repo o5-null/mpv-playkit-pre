@@ -103,6 +103,111 @@ components:
       - source: Lib/site-packages/vapoursynth/vsvfw.dll
         target: vsvfw.dll
 
+  # ---- VapourSynth 插件生态 ----
+  # K7sfunc 的模块按插件名做依赖检查（_check_plugin），没有这些插件就只能跑纯内置滤镜。
+  # 全部取自 PyPI 上按 API 4 编译的轮子（R80 起 API 3 被移除，作者已跟进）：
+  # wheel 内的 DLL 都落在 vapoursynth/plugins/，R82 会递归扫描该目录自动加载。
+  - id: vs-plugin-akarin
+    kind: whl
+    summary: akarin 滤镜组（Expr/Transpose/Loop 等，K7sfunc 多数模块依赖）
+    upstream: AkarinVS/vapoursynth-akarin
+    license: LGPL-3.0-or-later
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/akarin/libakarin.dll
+
+  - id: vs-plugin-mvtools
+    kind: whl
+    summary: mvtools（运动估计，补帧/降噪模块依赖）
+    upstream: dubhater/vapoursynth-mvtools
+    license: GPL-2.0-or-later
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/mvtools.dll
+
+  - id: vs-plugin-fmtconv
+    kind: whl
+    summary: fmtconv（高精度格式转换）
+    upstream: EleonoreMizo/fmtconv
+    license: WTFPL
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/fmtconv.dll
+
+  - id: vs-plugin-zsmooth
+    kind: whl
+    summary: zsmooth（mvtools 上的时域降噪）
+    upstream: home-of-the-sane/zsmooth
+    license: MIT
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/zsmooth/zsmooth.dll
+
+  - id: vs-plugin-bm3d
+    kind: whl
+    summary: bm3d（BM3D 降噪）
+    upstream: home-of-the-sane/vapoursynth-bm3d
+    license: MIT
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/bm3d.dll
+
+  - id: vs-plugin-bwdif
+    kind: whl
+    summary: bwdif（反交错）
+    upstream: home-of-the-sane/vapoursynth-bwdif
+    license: GPL-3.0-or-later
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/bwdif.dll
+
+  - id: vs-plugin-vivtc
+    kind: whl
+    summary: vivtc（VFR 转 CFR / 场匹配）
+    upstream: dubhater/vapoursynth-vivtc
+    license: MIT
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vivtc.dll
+
+  - id: vs-plugin-tivtc
+    kind: whl
+    summary: tivtc（TIVTC 反胶卷过带）
+    upstream: dubhater/vapoursynth-tivtc
+    license: GPL-3.0-or-later
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/tivtc.dll
+
+  - id: vs-plugin-vszip
+    kind: whl
+    summary: vszip（帧缓冲区运算，去色带/亮度调整用）
+    upstream: dnjulek/vapoursynth-zip
+    license: MIT
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vszip/vszip.dll
+
+  - id: vs-plugin-znedi3
+    kind: whl
+    summary: znedi3（nnedi3 的 AVX2 实现，超分/反交错）
+    upstream: sekrit-twc/znedi3
+    license: GPL-3.0-or-later
+    install_to: Lib/site-packages
+    exclude: ["*.dist-info", "*.dist-info/*"]
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/znedi3.dll
+      - Lib/site-packages/vapoursynth/plugins/nnedi3_weights.bin
+
   # 包布局文件：便携标记（portable.vs）与插件目录占位。
   # 没有版本，也不下载——直接取自本仓库 configs/。
   - id: playkit-layout

@@ -1,8 +1,8 @@
 # 拓展（挡位）补丁包：TensorRT-RTX
 #
 # 对应上游 mpv_PlayKit 的 "vsNV" 定位：拿 GPU 跑超分/补帧的推理那一档。
-# 但这里只带"插件 + 运行库"，不带模型——与 vsNV 一致，模型按需另下，
-# 否则一个包就上 GB，且用户装的档位各不相同。
+# 这里除了"插件 + 运行库"，还带 cugan / dpir 模型与 Python 侧依赖（onnx 等），
+# 开箱即可跑 CUGAN_NV / DPIR_DBLK_NV；rife / mad 等其余模型仍按需另下。
 #
 # 为什么是 TensorRT-RTX 而不是完整 TensorRT：
 #   完整 TensorRT 的 CUDA 后端要 >1GB 的 CUDA 库；TRT-RTX 是官方"<200MB 的
@@ -28,9 +28,9 @@ schema: 1
 name: tensorrt-rtx
 title: TensorRT-RTX 补丁包（推理档）
 summary: >-
-  vs-mlrt 的 vstrt_rtx 插件（API 4 重编译）+ TensorRT-RTX 1.5 运行库，
-  让 K7sfunc 的 TRT-RTX 后端可用。不含模型：cugan / dpir / rife 需要自己下到
-  vs-plugins/ 对应目录。
+  vs-mlrt 的 vstrt_rtx 插件（API 4 重编译）+ TensorRT-RTX 1.5 运行库 +
+  onnx 等 Python 依赖 + cugan / dpir 模型，让 K7sfunc 的 TRT-RTX 后端开箱可用。
+  rife / mad 等其余模型仍需自己下到 vs-plugins/ 对应目录。
 
 components:
   # 插件本体：wheel 里只有 vapoursynth/plugins/vsmlrt/vstrt_rtx.dll（535 KB）。
@@ -60,6 +60,104 @@ components:
     provides:
       - Lib/site-packages/vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_rtx_1_5.dll
       - Lib/site-packages/vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_onnxparser_rtx_1_5.dll
+
+  # ---- Python 侧依赖 ----
+  # vstrt 建引擎时在 Python 里读 onnx（推形状、转 fp16），而 embed Python 没有 pip，
+  # 所以这些包必须随包落到 Lib/site-packages。版本按 Python 3.15 选标签：
+  #   onnx / protobuf 是 abi3 轮子（cp312-abi3 / cp310-abi3 可直接用）
+  #   numpy / ml_dtypes 没有 abi3，必须精确 cp315
+  - id: py-onnx
+    kind: whl
+    summary: onnx（TRT 建引擎时读取/改写模型）
+    upstream: onnx/onnx
+    license: Apache-2.0
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/onnx/__init__.py"]
+
+  - id: py-onnxconverter-common
+    kind: whl
+    summary: onnxconverter-common（fp16 模型转换）
+    upstream: microsoft/onnxconverter-common
+    license: MIT
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/onnxconverter_common/__init__.py"]
+
+  - id: py-numpy
+    kind: whl
+    summary: numpy 2.5（CPython 3.15 轮子）
+    upstream: numpy/numpy
+    license: BSD-3-Clause
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/numpy/__init__.py"]
+
+  - id: py-protobuf
+    kind: whl
+    summary: protobuf（onnx 的序列化依赖）
+    upstream: protocolbuffers/protobuf
+    license: BSD-3-Clause
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/google/protobuf/__init__.py"]
+
+  - id: py-typing-extensions
+    kind: whl
+    summary: typing_extensions（onnx / ml_dtypes 的依赖）
+    upstream: python/typing_extensions
+    license: PSF-2.0
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/typing_extensions.py"]
+
+  - id: py-ml-dtypes
+    kind: whl
+    summary: ml_dtypes 0.7（CPython 3.15 轮子）
+    upstream: jax-ml/ml_dtypes
+    license: Apache-2.0
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/ml_dtypes/__init__.py"]
+
+  - id: py-packaging
+    kind: whl
+    summary: packaging（onnxconverter-common 的依赖）
+    upstream: pypa/packaging
+    license: Apache-2.0 OR BSD-2-Clause
+    install_to: Lib/site-packages
+    # 保留 *.dist-info：包从元数据读自己的版本号，删掉后 onnx 会报 'unknown'
+    provides: ["Lib/site-packages/packaging/__init__.py"]
+
+  # ---- 模型 ----
+  # 来源：hooke007/dotfiles 的 mpv_addones 资产（与 mpv_PlayKit 的模型包同源）。
+  # 7z 内的目录前缀决定了 install_to：
+  #   cugan 包内含 cugan/ 目录 -> 解到 vsmlrt/models 即得 models/cugan/*.onnx
+  #   dpir 包是平铺文件      -> 解到 vsmlrt/models/dpir 才是 K7sfunc 找的路径
+  - id: models-cugan
+    kind: archive
+    summary: cugan 超分模型（pro/conservative/denoise 三个 up2x）
+    upstream: hooke007/dotfiles
+    license: MIT
+    extract: 7z
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/cugan/pro-conservative-up2x.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/cugan/pro-denoise3x-up2x.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/cugan/pro-no-denoise3x-up2x.onnx
+
+  - id: models-dpir
+    kind: archive
+    summary: DPIR 降噪/去块模型（drunet 四个）
+    upstream: hooke007/dotfiles
+    license: MIT
+    extract: 7z
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_color.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_color.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_grayscale.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_gray.onnx
 
   # 许可与来源说明：NVIDIA 运行库可再分发，但必须随附许可原文。
   - id: pack-attribution

@@ -126,6 +126,7 @@ def check_pack_archive(archive: Path) -> None:
         if not names:
             common.fail(f"补丁包是空的: {archive.name}")
         plugin_root = "Lib/site-packages/vapoursynth/plugins/"
+        site_root = "Lib/site-packages/"
         for name in names:
             top = name.split("/")[0]
             if top not in ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json"):
@@ -133,8 +134,9 @@ def check_pack_archive(archive: Path) -> None:
             if name.startswith("Lib/"):
                 rel = name.rstrip("/")
                 if not (rel.startswith(plugin_root.rstrip("/") + "/")
-                        or plugin_root.rstrip("/").startswith(rel)):
-                    common.fail(f"补丁包的 Lib/ 下只允许插件目录: {name}")
+                        or plugin_root.rstrip("/").startswith(rel)
+                        or (rel.startswith(site_root) and not rel.startswith(site_root + "vapoursynth"))):
+                    common.fail(f"补丁包的 Lib/ 下只允许插件目录与 Python 包: {name}")
             if any(part in name.split("/") for part in FORBIDDEN_PARTS):
                 common.fail(f"补丁包含禁止目录: {name}")
         # 具体组件校验交给 manifests/packs/*.yml 的 provides，

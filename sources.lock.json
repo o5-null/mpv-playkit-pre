@@ -10,11 +10,11 @@
       "pinned_at": "2026-11-20T16:37:45Z"
     },
     "k7sfunc": {
-      "version": "e4217b5b051cbca649dca3b40ddd5004a5f9fbaa",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/e4217b5b051cbca649dca3b40ddd5004a5f9fbaa",
-      "sha256": "e215fee6aa7173113de3cf239c168056c6826dfdf8ad1510d3e9fe4312979c69",
-      "size": 147943,
-      "pinned_at": "2026-11-20T16:26:08Z"
+      "version": "1.9.0+pre.5",
+      "url": "https://github.com/o5-null/K7sfunc/archive/3a868c7.tar.gz",
+      "sha256": "62ca5d351aedaa7312cefbd356ad9a2531cb866c70ccbf0949c52a17fd7e9166",
+      "size": 150538,
+      "pinned_at": "2026-11-20T18:07:11Z"
     },
     "mpv": {
       "version": "20261111-git-bcde6b93cc",
@@ -29,6 +29,69 @@
       "sha256": "d012f3aa29cf07436dae8aea1fec0fd195c2612a0b059b1f915ae0afb9ad1f62",
       "size": 13740486,
       "pinned_at": "2026-11-20T15:26:43Z"
+    },
+    "tensorrt-rtx/models-cugan": {
+      "version": "vs-k7sfunc.0_0_7.cugan-models",
+      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_0_7.cugan-models.7z",
+      "sha256": "95cd1c858f478a0bb408ac50fcc1e8fecf281c6073d9a5ff7c5d61f40c52ac12",
+      "size": 13713218,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/models-dpir": {
+      "version": "vs-k7sfunc.0_2_0.dpir-models",
+      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_2_0.dpir-models.7z",
+      "sha256": "1d3446df83286aa5adeb8ba1a0ef0ae2ee87bf6b9873a1518cccfb8b153b9474",
+      "size": 482254994,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-ml-dtypes": {
+      "version": "0.7.0-cp315",
+      "url": "https://files.pythonhosted.org/packages/39/78/bc623555aa81a017167f38449faeb57e945e36d9a8de5b5c36b16c695b1b/ml_dtypes-0.7.0-cp315-cp315-win_amd64.whl",
+      "sha256": "9a8befe9c3610745515af48696044366b0e15accfcad12350c457fba5443ed21",
+      "size": 477450,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-numpy": {
+      "version": "2.5.5-cp315",
+      "url": "https://files.pythonhosted.org/packages/5a/7e/a4c5b4b30dbab285b380130dbf780bccece06de020221491058ea2c66310/numpy-2.5.5-cp315-cp315-win_amd64.whl",
+      "sha256": "ae9cfe4e985139c5f2db69d4310de7348bd0abc02cfdc06991c4419065f6fdca",
+      "size": 12710024,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-onnx": {
+      "version": "1.23.2-cp312-abi3",
+      "url": "https://files.pythonhosted.org/packages/38/ce/102fd4a0b2a6d111a9c86745e084c4c68c0ee020eaa359a03a8d43e4646f/onnx-1.23.2-cp312-abi3-win_amd64.whl",
+      "sha256": "9b382ba898a7c142a0801d03cf04ecabced96c1543c7b643a86f0928143802de",
+      "size": 7872489,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-onnxconverter-common": {
+      "version": "1.16.0",
+      "url": "https://files.pythonhosted.org/packages/4a/67/8dca1868a6e226f8d3f7d666cb6a48b79a60aad5267b16b24627cd8d9eb8/onnxconverter_common-1.16.0-py2.py3-none-any.whl",
+      "sha256": "df39ee96f17fff119dff10dd245467651b60b9e8a96020eb93402239794852f7",
+      "size": 89511,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-packaging": {
+      "version": "26.3",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "size": 129956,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-protobuf": {
+      "version": "7.36.2-cp310-abi3",
+      "url": "https://files.pythonhosted.org/packages/8a/55/b77bda4e5e5f5971fb51b07663694690e9afdb9402136c16a522bd621cad/protobuf-7.36.2-cp310-abi3-win_amd64.whl",
+      "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353",
+      "size": 456514,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/py-typing-extensions": {
+      "version": "4.16.0",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "size": 45571,
+      "pinned_at": "2026-11-20T18:07:02Z"
     },
     "tensorrt-rtx/trt-rtx-libs": {
       "version": "16.2.2+alice.1",
@@ -50,6 +113,76 @@
       "sha256": "dbde9930d4e85de4eb220e05a0314edb7469b9016c5c58a279844b90da4a32b1",
       "size": 23728996,
       "pinned_at": "2026-11-20T15:27:00Z"
+    },
+    "vs-plugin-akarin": {
+      "version": "1.5.0",
+      "url": "https://files.pythonhosted.org/packages/0d/31/95658c029a7ee3bbfc1359f9fa623a13f0a3ff0d940ba9e204421dd7a0ca/vapoursynth_akarin-1.5.0-py3-none-win_amd64.whl",
+      "sha256": "66ba011c36f2c0a630c6a6662a40ca62d992b266ea36a0c1bf3c988e1738d7ae",
+      "size": 25910614,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-bm3d": {
+      "version": "12.0",
+      "url": "https://files.pythonhosted.org/packages/2b/da/f8644d70aec4c248fbb29989ddf9f55d7e1d60d34d010d2a09a6b2766f88/vapoursynth_bm3d-12.0-py3-none-win_amd64.whl",
+      "sha256": "f8e65dd2ac2381b0326953ef267a97d3cfcfdd62fe4e6f0da388be3787ce9b75",
+      "size": 2098793,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-bwdif": {
+      "version": "5.1",
+      "url": "https://files.pythonhosted.org/packages/ef/7a/e69a8271c254b5ec5cfcfcba2674de75263ed1e3ddaa05476df547c9fda6/vapoursynth_bwdif-5.1-py3-none-win_amd64.whl",
+      "sha256": "4eb1fc68dd7d53f175b5522d5e435a0a48ab4bf178a20b50b9104e9db888eadd",
+      "size": 132735,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-fmtconv": {
+      "version": "31",
+      "url": "https://files.pythonhosted.org/packages/c1/df/9698d8e2f0dfed016ddd1f1dbcb3c464c5e68a09b2aefb0e5287d415955c/vapoursynth_fmtconv-31-py3-none-win_amd64.whl",
+      "sha256": "9761744768e1ee1543acbf372092f95d37aeee985ef1bd6dc025cb1804a08293",
+      "size": 2250910,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-mvtools": {
+      "version": "29",
+      "url": "https://files.pythonhosted.org/packages/28/f5/1697a4c7238f442a24982a3e5b7b4cbc54d411b40bf3f83b955ab0ed3cc2/vapoursynth_mvtools-29-py3-none-win_amd64.whl",
+      "sha256": "d64d6525d88ce52572f93e04598083c7cff2a92bf6bc269168130fd7a5227746",
+      "size": 2757970,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-tivtc": {
+      "version": "4",
+      "url": "https://files.pythonhosted.org/packages/a9/71/5e4d79d9853533cfdd1cf6e267dcb94d5ee3017d827a42af6e967c60351d/vapoursynth_tivtc-4-py3-none-win_amd64.whl",
+      "sha256": "b8060f3ef2e55f88a2dd3050ef95de35182f5cc4710fcc67267e94c8e4dfa7cd",
+      "size": 716961,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-vivtc": {
+      "version": "2.0",
+      "url": "https://files.pythonhosted.org/packages/dd/87/eb23822a82a81535583b3daa7349f284792697338b387403f431754675ae/vapoursynth_vivtc-2.0-py3-none-win_amd64.whl",
+      "sha256": "554355240ac9ceb15711b387010ec5d025877beca2d9a8e85a3f392e42a96919",
+      "size": 68349,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-vszip": {
+      "version": "24.0.0",
+      "url": "https://files.pythonhosted.org/packages/90/83/1ab8d644ee63a60a5b8b714d58445fe26cae8b85dfb628018b2b22aa4912/vapoursynth_vszip-24.0.0-py3-none-win_amd64.whl",
+      "sha256": "95c635d0f1fdd870dd0f08583fa2d9842a7d9bbee36a70158527f9935f0b0761",
+      "size": 6404392,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-znedi3": {
+      "version": "3.3",
+      "url": "https://files.pythonhosted.org/packages/99/8e/fb2e045b4fbeda28df0ed6773563a04345a45ca878ad8ce1cb017005fde8/vapoursynth_znedi3-3.3-py3-none-win_amd64.whl",
+      "sha256": "28115bbef036b746f68e0b79359de8a69fe0cdcae3320bad55eabb73982bf504",
+      "size": 13179222,
+      "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vs-plugin-zsmooth": {
+      "version": "0.20.0",
+      "url": "https://files.pythonhosted.org/packages/f1/6f/9c75346fa11c76e8350a39c65b579eb9aecc7c8a3df462f629657e45ebc2/vapoursynth_zsmooth-0.20.0-py3-none-win_amd64.whl",
+      "sha256": "cdf00644eed5325c1916d96d0368e01572a20bf5d84dd1dc19ec2d84a45dbc5c",
+      "size": 10909304,
+      "pinned_at": "2026-11-20T18:08:48Z"
     },
     "yt-dlp": {
       "version": "2026.10.26",

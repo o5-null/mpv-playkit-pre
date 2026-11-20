@@ -134,17 +134,25 @@ def _playkit_sharp(input : vs.VideoNode, amount : float = 0.5) -> vs.VideoNode :
 
 ## 模型与插件放哪
 
-K7sfunc 的模型和 GPU 组件不在源码里，按它文档的约定放在 mpv 根目录：
+K7sfunc 的模型和 GPU 组件不在源码里。分三种情况：
+
+- **基础包自带**：`akarin`/`mvtools`/`fmtconv`/`zsmooth`/`bm3d`/`bwdif`/`vivtc`/`tivtc`/
+  `vszip`/`znedi3` 这 10 个插件（来自 PyPI 的 API 4 轮子），落在
+  `Lib/site-packages/vapoursynth/plugins/`，开箱即可用。
+- **`tensorrt-rtx` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + `cugan` / `dpir` 模型
+  （`vsmlrt/models/{cugan,dpir}/*.onnx`）+ `onnx` 等 Python 依赖，
+  `CUGAN_NV` / `DPIR_DBLK_NV` 装完即可出帧。
+- **仍需自己放**（按 K7sfunc 文档的约定，放在 mpv 根目录）：
 
 ```
-vs-plugins/models/              # 各种 .onnx 模型（ACNet / RIFE / DPIR ...）
+vs-plugins/models/              # 其余 .onnx 模型（ACNet / RIFE / ArtCNN ...）
 vs-plugins/madVR/madVR64.ax     # NGU 相关
 vs-plugins/librife_windows_x86-64.dll
 ```
 
-来源是 <https://github.com/hooke007/dotfiles/releases/tag/mpv_addones> 里的
-`vs-k7sfunc.*` 资产。**本仓库不打包这些资产**（单个就上百 MB，且与算法版本强绑定），
-需要时自行下载解压到上面的路径。
+其余模型的来源是 <https://github.com/hooke007/dotfiles/releases/tag/mpv_addones> 里的
+`vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208`、`ArtCNN` 等）。这些体积大且与算法版本
+强绑定，基础包不打包，按需下载解压到上面的路径。
 
 ## 拓展包与它的两个目录
 
