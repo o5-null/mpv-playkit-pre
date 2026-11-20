@@ -6,6 +6,7 @@
     python -m build package               打包 zip（含 .sha256）
     python -m build verify                校验 stage / 归档
     python -m build all                   assemble -> smoke -> package -> verify
+    python -m build ci                    等同 CI：fetch -> assemble -> smoke -> package -> verify
     python -m build sync                  同步上游 hooke007/mpv_PlayKit 配置目录
 """
 
@@ -63,6 +64,10 @@ def main(argv: list[str] | None = None) -> int:
     _add_common(p_all)
     p_all.add_argument("--out-dir")
 
+    p_ci = sub.add_parser("ci", help="在本地复现 CI 的全流程（fetch 起头）")
+    _add_common(p_ci)
+    p_ci.add_argument("--out-dir")
+
     p_sync = sub.add_parser("sync", help="同步上游配置目录（portable_config/installer）")
     p_sync.add_argument("--commit", help="指定上游 commit，默认取上游分支最新")
     p_sync.add_argument("--check", action="store_true", help="只检查，有更新时返回 3")
@@ -104,6 +109,19 @@ def main(argv: list[str] | None = None) -> int:
                 verify.check_archive(Path(args.asset))
             else:
                 verify.check_stage(Path(args.stage) if args.stage else _stage(args, version))
+            return 0
+
+        if args.cmd == "ci":
+            # 与 .github/workflows/build.yml 同序：fetch -> assemble -> smoke -> package -> verify
+            selected = assemble_mod.select_components(args.with_ids, args.without_ids)
+            fetch.fetch_all(selected, force=args.force)
+            stage = assemble_mod.assemble(version, args.with_ids, args.without_ids)
+            smoke.smoke(stage)
+            out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
+            archive = package.zip_stage(stage, out_dir, version)
+            verify.check_stage(stage)
+            verify.check_archive(archive)
+            common.log(f"CI 复现通过: {archive}")
             return 0
 
         if args.cmd == "all":

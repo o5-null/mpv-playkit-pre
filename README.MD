@@ -41,10 +41,11 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 
 ```bash
 pip install -r requirements.txt
-python -m build all
+python -m build ci         # 与 CI 同序：fetch -> assemble -> smoke -> package -> verify
 ```
 
-产物在 `dist/out/mpv-playkit-pre-<版本>-windows-x64.zip`（附 `.sha256`）。分步执行：
+产物在 `dist/out/mpv-playkit-pre-<版本>-windows-x64.zip`（附 `.sha256`）。只重建不下载时用
+`python -m build all`（跳过 fetch）。分步执行：
 
 ```bash
 python -m build fetch      # 下载并校验全部组件

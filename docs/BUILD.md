@@ -40,6 +40,11 @@ build/pin.py               下载新资产、算哈希、写 lock
 
 ## 一次完整构建做了什么
 
+```text
+python -m build ci          # = fetch + 下面这一串；本地复现 CI 用这个
+python -m build all         # = 跳过 fetch，其余同上
+```
+
 ```
 python -m build all
   ├─ assemble(version)

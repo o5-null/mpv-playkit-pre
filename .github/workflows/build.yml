@@ -1,13 +1,16 @@
 # 构建工作流：只产出 artifact，故意不发布 release、不推 tag。
 # 产物统一通过 Actions artifact 交付，避免仓库里出现游离的发布版本，
 # 也避免 tag 与 VERSION 文件产生版本号双份真相。
+#
+# 触发方式：不跟着 push 跑。平时在本地用 `python -m build ci` 复现同样的步骤，
+# 本地全绿再推；这里只在每日定时和手动触发时验证，避免每次推送失败都刷一封信。
 name: build
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  schedule:
+    - cron: "0 4 * * *"
   workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
