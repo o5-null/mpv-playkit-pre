@@ -90,6 +90,7 @@ python -m build.pin --id k7sfunc --version 1.9.0+pre.2 \
 
 - [`docs/BUILD.md`](docs/BUILD.md) —— 构建链细节、CI、可复现性
 - [`docs/TOOLKIT.md`](docs/TOOLKIT.md) —— K7sfunc fork 的 `PLAYKIT_*`：预设、算子、如何加算法
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) —— 设计决策与已知坑：为什么这样分层、踩过哪些雷
 - [`docs/upstream-README.md`](docs/upstream-README.md) —— 上游 mpv_PlayKit 原始说明
 
 ## 许可
