@@ -178,6 +178,45 @@
   `tensorrt_rtx()` 给 builder 下发 `-CUDNN`（TRT-RTX 只认 `EDGE_MASK_CONVOLUTIONS` /
   `JIT_CONVOLUTIONS`，会报 `Unknown tactic source: CUDNN`）。
 
+## 15. 其余模型走 Release 资产，一族一个 zip（2026-11-21）
+
+- **决策**：`tensorrt-rtx` 包除了内置 cugan 与 dpir 去块，还要带齐 K7sfunc 的 NV 算法能用的
+  其余模型：通用超分 5 个、`ArtCNN/` 3 个、`rife/` 5 个、`rife_v2/` 5 个、`drba/` 16 个
+  （fp32 与 fp16 各一套）。这些权重不进 git，而是打成 5 个 zip 发在本仓库的 Release
+  （tag `models-v1`：`models-generic.zip`、`models-artcnn.zip`、`models-rife.zip`、
+  `models-rife-v2.zip`、`models-drba.zip`），构建时按 `sources.lock.json` 下载。
+- **原因**：34 个 onnx 共 492 MB，塞进 git 会让每次提交永久留一份、clone 全拉；Release
+  资产可以整体替换（新 tag）而不污染历史。一族一个包是为了让用户能只取自己要的那族，
+  拆包粒度与 K7sfunc 的 `models/<族>/` 目录一一对应，解压后直接落到 `vsmlrt/models`。
+- **代价**：补丁包从 363.7 MB 涨到 841 MB（实测 2026.11.20-db0f758：stage 1070.1 MB，
+  模型 zip 已是压缩态，再套进包几乎不缩）。
+  不想全量的用户可以只装 `-pack-tensorrt-rtx.zip` 里的 cugan/dpir，其余从 Release 单取。
+- **细节**：`.engine` / `.engine.cache` 是 TensorRT 在本机按显卡与驱动构建的缓存，**不分发**
+  （`rife_v2/` 里那 16 个就是这样被排除的）；zip 用固定时间戳生成，同样的输入得到同样的
+  sha256，便于 `sources.lock.json` 钉住。
+
+## 16. fp16 引擎：转换前先净化模型（fork `1.9.0+pre.6`）
+
+- **决策**：`_external/vsmlrt.py` 里 `tensorrt_rtx()` 不再直接
+  `convert_float_to_float16()`，而是先跑 `fp16_source(model)`：① 删掉「`to` 等于输入类型」
+  的 no-op `Cast`（并把引用改写到它的输入张量）；② 把所有「输入是整型」的 `Cast` 节点名
+  收进 `node_block_list`，交给 onnxconverter 在边界自动插 Cast。缓存文件名后缀随之从
+  `_blk` 改为 `_castfix`。
+- **原因**：16-bit clip（RIFE / DRBA 内部用 `vs.RGBH`）要求 fp16 io，于是要先转 fp16 模型；
+  但 TRT-RTX 1.5 (b114) 的 importer 会把 `Cast(int64 -> half)` 的输出当成 Float（ONNX 侧
+  `infer_shapes` 明确是 half），于是报
+  `ElementWiseOperation PROD must have same input types. But they are of types Float and Half.`
+  ——逐点 blocklist 只会把失败点从 node 66 迁到 node 282，必须整类排除。DRBA 另有一个
+  "float 逃逸"：原图里 `Cast(x, to=float32)`（x 本就是 float32）被转换后变成
+  `Cast(half -> float32)`，把 fp32 带进 half 图，与 half 的 `Concat` 在 `/Add_10` 相撞，
+  所以必须先删 no-op Cast 再转。
+- **代价**：转换多一次 `infer_shapes`（秒级，只在首次建引擎时跑）；已转换过的旧
+  `*_fp16*_blk.onnx` 会被忽略，用户首次升级后要重建一次引擎。
+- **实测**（RTX 3080 / 720p）：`RIFE_NV` 引擎 3.06 ms/帧、`DRBA_NV` 15.52 MiB 引擎
+  1.34 ms/帧；六用例（cugan 静态/动态、dpir 去块、ArtCNN、RIFE、DRBA）在真实包树上全绿。
+- **不要**：把 `fp16_io` 设成 `False` 想绕过——vstrt 插件不做位深转换，8-bit clip 配
+  fp32 io 的引擎会报 `bits per sample mismatch`，且 `tensorrt_rtx.exe` 也没有
+  `--fp16` / 任何 IOFormat 开关，引擎 io 类型只能跟 ONNX 模型走。
 
 - **`vf=vapoursynth` 的路径**：mpv 滤镜参数用 `:` 分隔，Windows 盘符会被当成参数分隔符。冒烟测试因此 `cwd` 到 stage 后用相对路径。
 - **`python3xx._pth` 模式下 `PYTHONPATH` 无效**：`vs-scripts/` 是 `._pth` 里写死的搜索路径，所以 `k7sfunc` 要么进 `Lib/site-packages`，要么进 `vs-scripts/`。

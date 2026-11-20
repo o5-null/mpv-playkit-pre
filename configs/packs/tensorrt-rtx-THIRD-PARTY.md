@@ -15,6 +15,7 @@
 | `vapoursynth/plugins/vsmlrt/vsmlrt-cuda/tensorrt_rtx.exe` | 同上（TRT-RTX 的引擎构建器） | NVIDIA TensorRT License Agreement |
 | `vapoursynth/plugins/vsmlrt/models/cugan/*.onnx` | [hooke007/dotfiles](https://github.com/hooke007/dotfiles/releases/tag/mpv_addones) 的 `vs-k7sfunc.0_0_7.cugan-models.7z`（real-cugan 权重，非 NVIDIA 所有） | MIT |
 | `vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_*.onnx` | 同上的 `vs-k7sfunc.0_2_0.dpir-models.7z`（DPIR / DRUNet 权重，只取去块两个） | MIT |
+| `vapoursynth/plugins/vsmlrt/models/{ArtCNN,rife,rife_v2,drba}/` 与 `models/*.onnx` | 本仓库 Release `models-v1` 的五个模型 zip（权重取自 [hooke007/dotfiles](https://github.com/hooke007/dotfiles/releases/tag/mpv_addones) 与 mpv_PlayKit 的模型包，作者见各资产说明） | MIT |
 | `onnx` / `onnxconverter_common` / `numpy` / `protobuf` / `typing_extensions` / `ml_dtypes` / `packaging` | PyPI 官方发布 | Apache-2.0 / MIT / BSD-3-Clause / PSF-2.0 |
 
 许可原文见同目录 `LICENSE.txt`（NVIDIA）与基础包 `licenses/`（vs-mlrt 侧）。
@@ -37,17 +38,20 @@ VapourSynth R80 起移除 API 3，官方 vs-mlrt（含最新的 `v16.4.test1`）
 
 ## 模型在哪
 
-包内已带 cugan（超分）与 dpir 去块两个权重，直接对应 K7sfunc 的查找路径：
+包内按 K7sfunc 的查找路径放好了六族权重：
 
-- 超分：`Lib/site-packages/vapoursynth/plugins/vsmlrt/models/cugan/*.onnx`
+- 超分：`.../vsmlrt/models/cugan/*.onnx`、`.../vsmlrt/models/ArtCNN/*.onnx`、
+  以及 `.../vsmlrt/models/*.onnx`（5 个通用超分模型）
+- 补帧：`.../vsmlrt/models/rife/*.onnx`（外部进程路径）与 `.../vsmlrt/models/rife_v2/*.onnx`（TRT 路径）
+- 去带：`.../vsmlrt/models/drba/*.onnx`（fp32 与 fp16 各一套）
 - 去块：`.../vsmlrt/models/dpir/drunet_deblocking_grayscale.onnx` 与 `drunet_deblocking_color.onnx`
 
 DPIR 去噪用的 `drunet_gray.onnx` / `drunet_color.onnx`（各约 130 MB，上游同包提供）没有放进补丁包，
 需要的话从 `hooke007/dotfiles` 的 `mpv_addones` 资产自取，丢进同一个 `dpir/` 目录即可。
 
-其余模型仍要自己放到 `vs-plugins/` 或 vsmlrt 的 `models/` 对应目录：
+`.engine` / `.engine.cache` 是 TensorRT 在本机按显卡与驱动构建的缓存，包里不带，首次运行时自动重建。
 
-- 补帧：`vs-plugins/librife_windows_x86-64.dll` + 对应 `rife` 模型
-- 其它超分（ACNet / ArtCNN）：`.../vsmlrt/models/{acnet,ArtCNN}/`
+五族模型也单独发在本仓库 Release（tag `models-v1`，一族一个 zip），只想补某一族时从那里取，
+解压到 `.../vsmlrt/models/` 即可。
 
 没有模型时 K7sfunc 的 TRT-RTX 预设会降级并在 OSD 提示，不算故障。

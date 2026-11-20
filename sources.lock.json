@@ -10,11 +10,11 @@
       "pinned_at": "2026-11-20T16:37:45Z"
     },
     "k7sfunc": {
-      "version": "1.9.0+pre.5",
-      "url": "https://github.com/o5-null/K7sfunc/archive/3a868c7.tar.gz",
-      "sha256": "62ca5d351aedaa7312cefbd356ad9a2531cb866c70ccbf0949c52a17fd7e9166",
-      "size": 150538,
-      "pinned_at": "2026-11-20T18:07:11Z"
+      "version": "1.9.0+pre.6",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/1701097db5f849263013ec081e5165ef84671a82",
+      "sha256": "69f44a27c81e4e5f33239f5d8fb6c1f6827e446d5e3989976a97417f440ebe61",
+      "size": 491324,
+      "pinned_at": "2026-11-20T19:06:01Z"
     },
     "mpv": {
       "version": "20261111-git-bcde6b93cc",
@@ -30,6 +30,13 @@
       "size": 13740486,
       "pinned_at": "2026-11-20T15:26:43Z"
     },
+    "tensorrt-rtx/models-artcnn": {
+      "version": "models-artcnn",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-artcnn.zip",
+      "sha256": "5a12144c302ecc750ca156a795b0ac19d43d06721c6cbb1e59c33786a4ebccdc",
+      "size": 21992043,
+      "pinned_at": "2026-11-20T18:43:16Z"
+    },
     "tensorrt-rtx/models-cugan": {
       "version": "vs-k7sfunc.0_0_7.cugan-models",
       "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_0_7.cugan-models.7z",
@@ -43,6 +50,34 @@
       "sha256": "1d3446df83286aa5adeb8ba1a0ef0ae2ee87bf6b9873a1518cccfb8b153b9474",
       "size": 482254994,
       "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "tensorrt-rtx/models-drba": {
+      "version": "models-drba",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-drba.zip",
+      "sha256": "05dbef253df6560023e025b48742f8385cb2a7f1c0a2b91f1e956e573b883920",
+      "size": 247701808,
+      "pinned_at": "2026-11-20T18:44:38Z"
+    },
+    "tensorrt-rtx/models-generic": {
+      "version": "models-generic",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-generic.zip",
+      "sha256": "1c2be4aa7555bb72bf9cc4cc5b0c65fa5c9abc06923f388c1ed2025dc21a99d1",
+      "size": 1946522,
+      "pinned_at": "2026-11-20T18:43:12Z"
+    },
+    "tensorrt-rtx/models-rife": {
+      "version": "models-rife",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-rife.zip",
+      "sha256": "35dadc3de7ca51dfee372c50822aa30dc1be6b5224e31860943b36386ce07df4",
+      "size": 102928959,
+      "pinned_at": "2026-11-20T18:43:28Z"
+    },
+    "tensorrt-rtx/models-rife-v2": {
+      "version": "models-rife-v2",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-rife-v2.zip",
+      "sha256": "5f0fdf11fb1ea8595974393a42109123dd1614486979284a294decf926ca575f",
+      "size": 102950134,
+      "pinned_at": "2026-11-20T18:43:42Z"
     },
     "tensorrt-rtx/py-ml-dtypes": {
       "version": "0.7.0-cp315",

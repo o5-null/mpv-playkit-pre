@@ -1,8 +1,9 @@
 # 拓展（挡位）补丁包：TensorRT-RTX
 #
 # 对应上游 mpv_PlayKit 的 "vsNV" 定位：拿 GPU 跑超分/补帧的推理那一档。
-# 这里除了"插件 + 运行库"，还带 cugan / dpir 模型与 Python 侧依赖（onnx 等），
-# 开箱即可跑 CUGAN_NV / DPIR_DBLK_NV；rife / mad 等其余模型仍按需另下。
+# 这里除了"插件 + 运行库"，还带六族模型（cugan / dpir 去块 / 通用超分 / ArtCNN /
+# RIFE / DRBA）与 Python 侧依赖（onnx 等），开箱即可跑 CUGAN_NV / ARTCNN_NV /
+# RIFE_NV / DRBA_NV / DPIR_DBLK_NV；DPIR 的两个去噪模型与 madVR 仍按需另下。
 #
 # 为什么是 TensorRT-RTX 而不是完整 TensorRT：
 #   完整 TensorRT 的 CUDA 后端要 >1GB 的 CUDA 库；TRT-RTX 是官方"<200MB 的
@@ -29,8 +30,9 @@ name: tensorrt-rtx
 title: TensorRT-RTX 补丁包（推理档）
 summary: >-
   vs-mlrt 的 vstrt_rtx 插件（API 4 重编译）+ TensorRT-RTX 1.5 运行库 +
-  onnx 等 Python 依赖 + cugan / dpir 模型，让 K7sfunc 的 TRT-RTX 后端开箱可用。
-  rife / mad 等其余模型仍需自己下到 vs-plugins/ 对应目录。
+  onnx 等 Python 依赖 + 六族模型（cugan / dpir 去块 / 通用超分 / ArtCNN /
+  RIFE / DRBA），让 K7sfunc 的 TRT-RTX 后端开箱可用。
+  DPIR 的两个去噪模型与 madVR 仍需自己下到 vsmlrt/models/dpir/ 与 vs-plugins/。
 
 components:
   # 插件本体：wheel 里只有 vapoursynth/plugins/vsmlrt/vstrt_rtx.dll（535 KB）。
@@ -160,6 +162,89 @@ components:
     provides:
       - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_color.onnx
       - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/drunet_deblocking_grayscale.onnx
+
+  # ---- 其余模型（o5-null/mpv-playkit-pre 的 Release 资产，一族一个 zip） ----
+  # 这些模型体积大又可选，单独发 Release，不塞进钩子仓库的 git 历史。
+  # zip 内已带子目录，统一解到 vsmlrt/models 即可。
+  - id: models-generic
+    kind: archive
+    summary: 通用超分模型（HFA2kCompact / Ani4Kv2 / AnimeJaNai V2,V3 / Anime1080Fixer）
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    extract: zip
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/Phhofm_HFA2kCompact_x2_fp16_op17.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/Sirosky_Ani4Kv2_UltraCompact_x2_fp16_op17.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/the_database_AnimeJaNaiV2L1_x2_fp16_op17.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/the_database_AnimeJaNaiV3L1_sharp_HD_x2_fp16_op17.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/Zarxrax_Anime1080Fixer_SUC_x1_fp16_op17.onnx
+
+  - id: models-artcnn
+    kind: archive
+    summary: ArtCNN 超分模型（R16F96 / R8F64 / R8F64_DS）
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    extract: zip
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/ArtCNN/ArtCNN_R16F96.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/ArtCNN/ArtCNN_R8F64.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/ArtCNN/ArtCNN_R8F64_DS.onnx
+
+  - id: models-rife
+    kind: archive
+    summary: RIFE 补帧模型（4.25 lite / 4.26 / 4.26 heavy / 4.6 / 4.6 ensemble）
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    extract: zip
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife/rife_v4.25_lite.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife/rife_v4.26.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife/rife_v4.26_heavy.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife/rife_v4.6.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife/rife_v4.6_ensemble.onnx
+
+  - id: models-rife-v2
+    kind: archive
+    summary: RIFE 补帧模型（TRT 用 rife_v2 目录，同一组模型）
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    extract: zip
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife_v2/rife_v4.25_lite.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife_v2/rife_v4.26.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife_v2/rife_v4.26_heavy.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife_v2/rife_v4.6.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/rife_v2/rife_v4.6_ensemble.onnx
+
+  - id: models-drba
+    kind: archive
+    summary: DRBA 去带模型（distilDRBA v1 / v2_lite 四变体，fp32 与 fp16 各一套）
+    upstream: o5-null/mpv-playkit-pre
+    license: MIT
+    extract: zip
+    install_to: Lib/site-packages/vapoursynth/plugins/vsmlrt/models
+    # TRT 路径不拼 _fp16（K7sfunc mod_memc.py 只对 dml 加后缀），所以两套都带
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_scale.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_ap.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_scale_ap.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_scale_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_ap_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v1_scale_ap_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_scale.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_ap.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_scale_ap.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_scale_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_ap_fp16.onnx
+      - Lib/site-packages/vapoursynth/plugins/vsmlrt/models/drba/distilDRBA_v2_lite_scale_ap_fp16.onnx
 
   # 许可与来源说明：NVIDIA 运行库可再分发，但必须随附许可原文。
   - id: pack-attribution

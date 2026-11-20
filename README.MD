@@ -40,7 +40,8 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 也可以改 `portable_config/script-opts/k7f_playkit.conf` 里的 `preset`，然后在控制台执行
 `script-message-to k7f_playkit apply`。
 
-> 首次使用 ARTCNN / CUGAN / RIFE 这类 GPU 算法需要模型文件（放在 `vs-plugins/models/`）。
+> GPU 算法用的模型；基础包本身不带，装 `-pack-tensorrt-rtx.zip` 补丁包后
+> cugan / dpir 去块 / 通用超分 / ArtCNN / RIFE / DRBA 六族即可用。
 > 默认的 `auto` 预设会按顺序逐级回退，缺模型只会降级并在 OSD 提示，不会黑屏。
 
 ## 拓展包（挡位补丁包）
@@ -51,7 +52,7 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 | 补丁包 | 内容 | 解压后 | 需要的硬件 |
 | --- | --- | --- | --- |
 | `-pack-framegen.zip` | DLSS-G / XeSS-FG / VFG / FSR4 四个插件 + `dlss45`、`xessfg` 引擎包 | ~81 MB | RTX 20/30 系（sm86 解锁）或支持对应 SDK 的卡 |
-| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan/dpir 去块模型 + onnx 等 Python 依赖 | ~365 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+| `-pack-tensorrt-rtx.zip` | `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan / dpir 去块模型 + 通用超分 / ArtCNN / RIFE / DRBA 模型 + onnx 等 Python 依赖 | ~841 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
 
 - 两个包都是**覆盖式**的：里面只有 `Lib/site-packages/vapoursynth/plugins/**`、
   `Lib/site-packages/` 下的 Python 依赖、`vs-plugins/**` 和 `PACK_INFO.json`，不会碰到
@@ -59,8 +60,9 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
   里列的文件逐个删）或换新版本。
 - 插件放 `Lib/site-packages/vapoursynth/plugins/` 由 VapourSynth 自动加载；
   引擎包留在 `vs-plugins/bin/<引擎>/`，由 K7sfunc fork 的 `MEMC_*.vpy` 按路径查找。
-- `tensorrt-rtx` 自带 cugan（超分）与 dpir（降噪/去块）模型，其余模型（rife 补帧、
-  ACNet / ArtCNN）仍需自备：见 `docs/TOOLKIT.md`。
+- `tensorrt-rtx` 自带 cugan、dpir 去块、通用超分、ArtCNN、RIFE、DRBA 六类模型，
+  覆盖 K7sfunc 的 NV 算法；只有 dpir 的去噪两个（`drunet_gray` / `drunet_color`）需要自备：
+  见 `docs/TOOLKIT.md`。
 
 
 ## 构建

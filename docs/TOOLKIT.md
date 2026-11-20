@@ -139,21 +139,32 @@ K7sfunc 的模型和 GPU 组件不在源码里。分三种情况：
 - **基础包自带**：`akarin`/`mvtools`/`fmtconv`/`zsmooth`/`bm3d`/`bwdif`/`vivtc`/`tivtc`/
   `vszip`/`znedi3` 这 10 个插件（来自 PyPI 的 API 4 轮子），落在
   `Lib/site-packages/vapoursynth/plugins/`，开箱即可用。
-- **`tensorrt-rtx` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + `cugan` 三个超分模型
-  与 DPIR 的两个去块模型（`vsmlrt/models/{cugan,dpir}/*.onnx`）+ `onnx` 等 Python 依赖，
-  `CUGAN_NV` / `DPIR_DBLK_NV` 装完即可出帧。DPIR 去噪用的 `drunet_gray` / `drunet_color`
-  不在包里，需要就去 `hooke007/dotfiles` 的 `mpv_addones` 资产里取，丢进同一个 `dpir/` 目录。
-- **仍需自己放**（按 K7sfunc 文档的约定，放在 mpv 根目录）：
+- **`tensorrt-rtx` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + 六族模型 + `onnx` 等
+  Python 依赖，装完 `CUGAN_NV` / `ARTCNN_NV` / `RIFE_NV` / `DRBA_NV` / `DPIR_DBLK_NV`
+  即可出帧（缺模型时 K7sfunc 会报"所请求的模型缺失"，不会黑屏）：
 
 ```
-vs-plugins/models/              # 其余 .onnx 模型（ACNet / RIFE / ArtCNN ...）
-vs-plugins/madVR/madVR64.ax     # NGU 相关
-vs-plugins/librife_windows_x86-64.dll
+Lib/site-packages/vapoursynth/plugins/vsmlrt/
+├─ cugan/            cugan 3 个（pro-* / conservative 各 up2x）
+├─ dpir/             drunet deblocking 2 个（DPIR_DBLK_NV 的 model 2/3）
+├─ ArtCNN/           ArtCNN_R16F96 / R8F64 / R8F64_DS
+├─ rife/             RIFE 4.25 lite / 4.26 / 4.26 heavy / 4.6 / 4.6 ensemble
+├─ rife_v2/          同一组 RIFE（TRT 路径用这个目录）
+├─ drba/             distilDRBA v1 / v2_lite 四变体，fp32 与 fp16 各一套
+└─ *.onnx            5 个通用超分模型（HFA2kCompact / Ani4Kv2 / AnimeJaNai / Anime1080Fixer）
+```
+
+- **仍需自己放**：DPIR 去噪用的 `drunet_gray` / `drunet_color`（`dpir/` 目录，来自
+  `hooke007/dotfiles` 的 `mpv_addones`），以及 NGU 的 `madVR64.ax`：
+
+```
+Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/   # 可选：去噪模型
+vs-plugins/madVR/madVR64.ax                                 # NGU 相关
 ```
 
 其余模型的来源是 <https://github.com/hooke007/dotfiles/releases/tag/mpv_addones> 里的
-`vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208`、`ArtCNN` 等）。这些体积大且与算法版本
-强绑定，基础包不打包，按需下载解压到上面的路径。
+`vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208` 等）。包里那五族是从那份资产里挑出来的，
+另外也单独发在本仓库的 Release（tag `models-v1`，一族一个 zip），想只补某一族就从那里下。
 
 ## 拓展包与它的两个目录
 
