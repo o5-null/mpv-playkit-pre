@@ -2,8 +2,9 @@
 #
 # 与 manifests/components.yml 完全同一套 kind 规则，区别只有三点：
 #   1. 版本不在这里，仍然钉在 sources.lock.json，键名是 "framegen/<id>"；
-#   2. 装配结果只允许出现在 vs-plugins/ 与 Lib/site-packages/vapoursynth/plugins/
-#      下（见 build/pack.py 的 ALLOWED_TOP）；
+#   2. 装配结果只允许出现在 vs-plugins/、Lib/site-packages/vapoursynth/plugins/
+#      与 portable_config/ 下（见 build/pack.py 的 ALLOWED_TOP）；配置不同就直接放进来，
+#      解压覆盖即可，不做开关层；
 #   3. 解压覆盖到基础包根即可生效——插件必须落在 VapourSynth 的 plugins 目录，
 #      因为 R82 只自动扫描 Lib/site-packages/vapoursynth/plugins/（递归）。
 #

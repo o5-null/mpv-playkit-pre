@@ -43,8 +43,9 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 3. **二进制不入库**：`.work/`、`dist/`、`*.7z`、`*.zip` 都在 gitignore；`portable_config/` 必须入库。
 4. `git-tree` 组件（k7sfunc）按 `paths` 白名单复制——fork 里新增的文件要同步加映射才会进包。
 5. CI 不在 push 触发（schedule / workflow_dispatch / pull_request），push 不会替你验证。
-6. **拓展包不得含基础包文件**：只允许 `Lib/site-packages/vapoursynth/plugins/**`、`vs-plugins/**`、
-   `PACK_INFO.json`；`pack.py: FORBIDDEN_REL` 会拦，别想着绕过——补丁包是覆盖式解压，写错就毁基础包。
+6. **拓展包可覆盖配置，但不得含基础包运行时本体**：允许 `Lib/site-packages/vapoursynth/plugins/**`、
+   `vs-plugins/**`、`portable_config/**`、`PACK_INFO.json`（配置不同就放进补丁包，解压直接覆盖）；
+   禁止 `mpv.exe`、`python.exe`、`vsscript.dll`、`vapoursynth.pyd`、`k7sfunc/` 等——覆盖式解压写错就毁基础包。
 
 ## 容易踩的坑
 

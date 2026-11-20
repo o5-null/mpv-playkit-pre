@@ -31,7 +31,6 @@ FORBIDDEN_REL = (
     "libvapoursynth.dll",
     "portable.vs",
     "BUILD_INFO.json",
-    "portable_config",
     # 覆盖 Lib/ 时同样不能碰基础包的 Python 侧本体
     "Lib/site-packages/vapoursynth/__init__.py",
     "Lib/site-packages/vapoursynth/vapoursynth.pyd",
@@ -42,7 +41,8 @@ FORBIDDEN_REL = (
 )
 
 # 补丁包产物里允许出现的顶层名字（其余一律拒绝，避免把不该覆盖的东西带进去）
-ALLOWED_TOP = ("vs-plugins", "Lib", "PACK_INFO.json")
+# portable_config/ 允许出现：补丁包可以携带与基础包不同的配置，解压即覆盖（这是有意的行为）
+ALLOWED_TOP = ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json")
 
 
 def pack_basename(name: str, version: str) -> str:

@@ -128,7 +128,7 @@ def check_pack_archive(archive: Path) -> None:
         plugin_root = "Lib/site-packages/vapoursynth/plugins/"
         for name in names:
             top = name.split("/")[0]
-            if top not in ("vs-plugins", "Lib", "PACK_INFO.json"):
+            if top not in ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json"):
                 common.fail(f"补丁包出现未预期的顶层条目: {name}")
             if name.startswith("Lib/"):
                 rel = name.rstrip("/")
@@ -140,7 +140,8 @@ def check_pack_archive(archive: Path) -> None:
         # 具体组件校验交给 manifests/packs/*.yml 的 provides，
         # 这里只确认"确实装了东西"和"没有串包"。
         files = [n for n in names if not n.endswith("/")]
-        if not any(n.startswith("vs-plugins/") or n.startswith(plugin_root) for n in files):
-            common.fail("补丁包没有往 vs-plugins/ 或插件目录放任何文件")
+        if not any(n.startswith("vs-plugins/") or n.startswith(plugin_root)
+                   or n.startswith("portable_config/") for n in files):
+            common.fail("补丁包没有往 vs-plugins/、插件目录或 portable_config/ 放任何文件")
         _check_dir_entries(names)
     common.log(f"补丁包校验通过: {archive.name}")

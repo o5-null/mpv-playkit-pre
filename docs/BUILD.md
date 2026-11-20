@@ -150,12 +150,15 @@ python -m build verify --pack --asset dist/out/<pack>.zip          # 校验产�
 ```
 Lib/site-packages/vapoursynth/plugins/**   插件 DLL，VapourSynth 启动时自动加载（含子目录）
 vs-plugins/**                              引擎包、许可、第三方说明等资源
+portable_config/**                         与基础包不同的配置（解压时直接覆盖）
 PACK_INFO.json                             包名、组件清单、lock_digest
 ```
 
-补丁包**不得**包含基础包的任何文件（`mpv.exe`、`python.exe`、`portable_config/`、
-`k7sfunc/` 等）；因为它是覆盖式解压，写错就毁基础包。另一个易错点是 wheel 里的
-`*.dist-info/` 目录条目——`exclude` 要同时写 `"*.dist-info"` 和 `"*.dist-info/*"`。
+补丁包**可以**覆盖 `portable_config/` 下的配置——如果需要不同的.conf/脚本，直接放进补丁包，
+解压即生效。但**不得**包含基础包的运行时本体（`mpv.exe`、`python.exe`、`vsscript.dll`、
+`Lib/site-packages/vapoursynth/vapoursynth.pyd`、`k7sfunc/` 等），因为覆盖式解压写错就毁基础包。
+另一个易错点是 wheel 里的 `*.dist-info/` 目录条目——`exclude` 要同时写 `"*.dist-info"` 和
+`"*.dist-info/*"`。
 
 **加一个拓展包**：写 `manifests/packs/<name>.yml`（`schema: 1`、`name`、`title`、
 `summary`、`components`），每个组件建议写 `provides`（产物里应出现的相对路径），

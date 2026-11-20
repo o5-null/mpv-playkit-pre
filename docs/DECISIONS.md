@@ -87,8 +87,9 @@
 ## 11. 拓展包做成 overlay zip，插件与资源分两个目录（2026-11-21）
 
 - **决策**：拓展包（"挡位补丁包"）是**不带顶层目录的 overlay zip**，解压到基础包根即叠加；
-  里面只允许两类内容——插件走 `Lib/site-packages/vapoursynth/plugins/**`，
-  资源（引擎包、许可文本）走 `vs-plugins/**`，另加一份 `PACK_INFO.json` 说明包名与文件清单。
+  里面允许三类内容——插件走 `Lib/site-packages/vapoursynth/plugins/**`，
+  资源（引擎包、许可文本）走 `vs-plugins/**`，与基础包不同的配置走 `portable_config/**`
+  （解压时直接覆盖，不做开关层），另加一份 `PACK_INFO.json` 说明包名与文件清单。
   清单在 `manifests/packs/<name>.yml`，版本仍进 `sources.lock.json`（键 `<pack>/<id>`）；
   `python -m build pack [--name <pack>]` 装配并出 zip，`build/verify.py: check_pack_archive` 校验。
 - **原因**：VS R82 起插件只在 `Lib/site-packages/vapoursynth/plugins/`（含子目录）被自动加载，
@@ -107,7 +108,7 @@
 - **代价**：补丁包内容依赖上游 wheel 的目录布局（`plugins/vsmlrt/` 与 `vsmlrt-cuda/`），
   换版本时要重新核布局；单个第三方维护者（AliceTeaParty）若停更，需要退回"自己编 API4"或
   "把 VS 钉回 R79"。`pack.py` 的 `FORBIDDEN_REL` 会阻止补丁包覆盖 `mpv.exe`、`python.exe`、
-  `portable_config/`、`k7sfunc/` 等基础包关键路径。
+  `vsscript.dll`、`vapoursynth.pyd`、`k7sfunc/` 等运行时本体（`portable_config/` 则允许覆盖）。
 
 ## 12. TRT-RTX 补丁包的依赖仍取 AliceTeaParty 的 API4 轮子（2026-11-21）
 
