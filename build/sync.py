@@ -1,7 +1,8 @@
 """从上游 hooke007/mpv_PlayKit 同步配置层。
 
 只替换 `portable_config/` 与 `installer/` 两个目录——本项目自己的东西都放在
-`overlay/`、`toolkit/`、`build/` 里，因此永远不需要解决合并冲突。
+`build/`、`manifests/`、`docs/` 里，自定义功能在 K7sfunc fork 里，
+因此永远不需要解决合并冲突。
 
     python -m build.sync                    # 同步上游 main 最新提交
     python -m build.sync --commit <sha>     # 指定提交
