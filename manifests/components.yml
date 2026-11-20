@@ -1,0 +1,85 @@
+# mpv-playkit-pre 组件规则清单
+#
+# 分层说明（参照 100pangci/mpv_PlayKit_TLS）
+#   本文件 = 规则：组件是什么、怎么装、装到哪、什么许可。改动频率低。
+#   sources.lock.json = 钉住的版本与哈希。改动频率高（换版本时）。
+#   `python -m build.pin --id <id> --url <url>` 会下载资产、算 sha256 并写入 lock。
+#
+# 字段
+#   id          组件标识（--with/--without、日志、BUILD_INFO 都用它）
+#   kind        mpv-7z | archive | whl | file | git-tree
+#   summary     一句话说明（会写进 docs 与报错信息）
+#   upstream    上游仓库，仅作溯源记录，构建不访问它
+#   members     kind=mpv-7z：从 7z 中只取这些文件，放到包根
+#   extract     kind=archive：7z | zip
+#   exclude     kind=archive：整树复制时排除的路径（前缀或通配符）
+#   install_to  安装目录（相对包根，默认 "."）
+#   target      kind=file：落地路径
+#   paths       kind=git-tree：{source, target} 映射，source 相对仓库根
+#   disable     true 表示默认不装，需 `--with <id>` 显式启用
+#   license     SPDX 标识，写进 licenses/THIRD_PARTY.md
+#
+# 版本在这里是看不到的——故意的：换版本只动 lock，不动规则，diff 干净。
+
+schema: 1
+
+project:
+  name: mpv-playkit-pre
+  platform: windows-x64
+  upstream: hooke007/mpv_PlayKit
+  description: 追踪最新组件版本的 Windows x64 便携 mpv 预览包（mpv_PlayKit 配置 + 自维护 K7sfunc）
+
+components:
+  # mpv 主体：shinchiro 的官方 Windows 构建（含 libavfilter / libplacebo）
+  - id: mpv
+    kind: mpv-7z
+    summary: mpv 播放器（shinchiro 构建）
+    upstream: shinchiro/mpv-winbuild-cmake
+    license: GPL-2.0-or-later
+    members:
+      - mpv.exe
+      - mpv.com
+      - d3dcompiler_43.dll
+
+  # 便携 Python + VapourSynth 运行时（hooke007 的快速部署包）
+  # 解压到 mpv.exe 同级：python.exe / Lib / VSScript.dll / vs-plugins / portable.vs
+  - id: python-vs
+    kind: archive
+    summary: 便携 CPython 3.14 + VapourSynth R73
+    upstream: hooke007/dotfiles@mpv_addones
+    license: PSF-2.0 AND LGPL-2.1-or-later
+    extract: 7z
+    install_to: .
+    exclude:
+      - doc
+      - sdk
+      - vsgenstubs4
+      - get-pip.py
+      - vsrepo.py
+      - 7z.exe
+      - 7z.dll
+      - AVFS.exe
+      - pfm-192-vapoursynth-win.exe
+      - MANIFEST.in
+      - python.cat
+
+  # K7sfunc：自维护 fork 的源码树（不是 PyPI wheel）
+  # 钉住的是 fork 的 commit；tarball 剥掉顶层目录后按 paths 复制。
+  # 只取需要的东西：整个 src/k7sfunc 包 + 本 fork 新增的前端两个文件，
+  # 不碰上游 mpv/ 里的 mpv.conf / input.conf（那会覆盖 mpv_PlayKit 的主配置）。
+  - id: k7sfunc
+    kind: git-tree
+    summary: K7sfunc 自维护 fork（含 PLAYKIT 预设与前端）
+    upstream: o5-null/K7sfunc
+    license: GPL-3.0-or-later
+    paths:
+      - source: src/k7sfunc
+        target: Lib/site-packages/k7sfunc
+      - source: mpv/portable_config/scripts/k7f_playkit.lua
+        target: portable_config/scripts/k7f_playkit.lua
+      - source: mpv/portable_config/script-opts/k7f_playkit.conf
+        target: portable_config/script-opts/k7f_playkit.conf
+      - source: LICENSE
+        target: licenses/k7sfunc-LICENSE
+      - source: src/LICENSE
+        target: licenses/k7sfunc-src-LICENSE

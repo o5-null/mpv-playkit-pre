@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "platform": "windows-x64",
+  "components": {
+    "k7sfunc": {
+      "version": "1.9.0+pre.1",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/adcd76a6fb0ed40b0fcc7cb55abf7dd43fb06b08",
+      "sha256": "50ca70cdb1588b0fc2a72dfed7235fca62d6c08f09beb910af8269e162ff7913",
+      "size": 138640,
+      "pinned_at": "2026-11-20T14:02:20Z"
+    },
+    "mpv": {
+      "version": "20261111-git-bcde6b93cc",
+      "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261111/mpv-x86_64-20261111-git-bcde6b93cc.7z",
+      "sha256": "f259b5fd4b5c395617c948a4fadcdf55bba1c5282fb7c13e88626b3f71072baf",
+      "size": 34181485,
+      "pinned_at": "2026-11-20T13:20:00Z"
+    },
+    "python-vs": {
+      "version": "python3.14.3-vapoursynth-R73",
+      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/py.3_14_3+vs.R73-portable.7z",
+      "sha256": "e3e6b432cba9f1a8f69a9d00c8d3ed8b29bec615bfd04a9409b1393adb2bc9cd",
+      "size": 20186798,
+      "pinned_at": "2026-11-20T13:20:00Z"
+    }
+  }
+}

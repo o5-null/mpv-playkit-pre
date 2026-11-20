@@ -1,0 +1,28 @@
+# ---- 构建过程产物 ----
+# .work/ 下载缓存与解包中间目录
+.work/
+# dist/ stage 装配结果与 out/ 打包产物
+dist/
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 本地开发环境 ----
+.venv/
+.idea/
+.vscode/
+
+# ---- Windows 资源管理器残留 ----
+Thumbs.db
+desktop.ini
+
+# ---- 本地测试残留（第三方二进制不进仓库）----
+# 7z / zip 是 fetch 阶段下载的第三方压缩包，以及本地手工打包的临时产物，
+# 体积大且可复现，一律不提交；需要时由 python -m build fetch 重新下载到 .work/downloads。
+tools/
+*.7z
+*.zip
+*.zip.sha256
+
+# 注意：portable_config/ 是上游同步的成品配置，必须纳入版本控制，
+# 此文件里不要出现任何针对 portable_config/ 的忽略规则。

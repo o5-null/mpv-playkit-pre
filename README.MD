@@ -1,31 +1,100 @@
-![](https://github.com/hooke007/mpv_PlayKit/blob/lite/Temp/mpv_PK.jpg)
+# mpv-playkit-pre
 
-# mpv播放器折腾记录
+Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](https://github.com/hooke007/mpv_PlayKit)，
+播放器用 shinchiro 官方构建，额外带上 VapourSynth 运行时，以及本仓库自己维护的
+[K7sfunc fork](https://github.com/o5-null/K7sfunc)（在其上新增 `mod_playkit` 预设层与 `k7f_playkit` 前端）。
 
-_从萌新到大白，<s>用前嫌麻烦</s> 用后真香_  
-[命令行播放器 mpv](https://github.com/mpv-player/mpv) 的设置历史存档（windows10/11）
+`pre` 是预览分支：**只追最新，不做兼容性保证**。组件版本随时可能跳到当天的最新构建，
+出问题请对比 `BUILD_INFO.json` 里的版本组合。构建过程完全由 Python 脚本完成，产物是一个
+解压即用的目录（不打安装器、不写注册表、不发布 release）。
 
-前往上方的 [**📖Wiki 维基版块📖**](../../wiki) 查看文档导航和关于子目录中各文件的说明
+## 包里有什么
 
-如有自定义的需求，建议在原档文件基础上修改；如果另自行新建文本，注意编码最好为 **UTF-8** ，换行符为 **LF** ，否则mpv可能无法识别  
+| 路径 | 说明 | 来源 |
+| --- | --- | --- |
+| `mpv.exe` / `mpv.com` / `d3dcompiler_43.dll` | 播放器本体 | [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake) |
+| `python.exe`、`Lib/`、`VSScript.dll`、`vs-plugins/`、`vs-scripts/` | 便携 CPython 3.14 + VapourSynth R73 | [hooke007/dotfiles@mpv_addones](https://github.com/hooke007/dotfiles/releases/tag/mpv_addones) |
+| `portable_config/` | 完整 mpv 配置、uosc 界面、脚本、shader、字体、lua | [hooke007/mpv_PlayKit](https://github.com/hooke007/mpv_PlayKit) |
+| `Lib/site-packages/k7sfunc/` | 超分 / 插帧 / 降噪 / 去色带算法 + `mod_playkit` 预设层 | [o5-null/K7sfunc](https://github.com/o5-null/K7sfunc) 源码树 |
+| `portable_config/scripts/k7f_playkit.lua` | 预设前端（OSD 提示 + 滤镜切换） | 同上 |
+| `portable_config/script-opts/k7f_playkit.conf` | 前端默认参数 | 同上 |
+| `licenses/`、`BUILD_INFO.json` | 许可文本与构建溯源 | 构建生成 |
 
-从零开始接触mpv且不使用懒人包的话可参考
-- [《win10/11 mpv播放器通用教程》](https://hooke007.github.io/unofficial/mpv_start.html)  
+## 快速开始
 
-## 主要分支
+1. 解压 zip，进入 `mpv-playkit-pre-<版本>-windows-x64/`；
+2. `mpv.exe` 直接播放。VapourSynth 链路不需要额外配置（`portable.vs` 与 `python*._pth` 已就位）；
+3. 想用预设，在你自己的 `input.conf` 里加一条绑定（脚本默认不占用任何按键）：
 
-- [**main**](https://github.com/hooke007/mpv_PlayKit/tree/main) 当前使用与曾使用过的全部文件（附详细说明、持续维护）
-- [**lite**](https://github.com/hooke007/mpv_PlayKit/tree/lite) 懒人包的核心设置同步
+```conf
+Ctrl+Shift+p  script-binding k7f_playkit/toggle
+Ctrl+Shift+o  script-binding k7f_playkit/off
+```
 
-## 懒人包 mpv-lazy
+也可以改 `portable_config/script-opts/k7f_playkit.conf` 里的 `preset`，然后在控制台执行
+`script-message-to k7f_playkit apply`。
 
-懒人包是解压即可使用的完整解决方案  
-使用前务必完整阅读 [《新快速说明》](https://github.com/hooke007/mpv_PlayKit/discussions/194)  
+> 首次使用 ARTCNN / CUGAN / RIFE 这类 GPU 算法需要模型文件（放在 `vs-plugins/models/`）。
+> 默认的 `auto` 预设会按顺序逐级回退，缺模型只会降级并在 OSD 提示，不会黑屏。
 
-下载请见 [**🏷发布版块 Releases🏷**](../../releases)  
-反馈前往 [**💬讨论版块 Discussions🗨️**](../../discussions)
+## 构建
 
-## 预览
+```bash
+pip install -r requirements.txt
+python -m build all
+```
 
-![](https://github.com/hooke007/mpv_PlayKit/blob/lite/Temp/mpv-lazy-lite.png)  
-![](https://github.com/hooke007/mpv_PlayKit/blob/obs/Temp/IMG/index-%E6%96%B0%E7%95%8C%E9%9D%A2%E4%B8%8E%E4%B8%8A%E4%B8%8B%E6%96%87%E8%8F%9C%E5%8D%95.webp)
+产物在 `dist/out/mpv-playkit-pre-<版本>-windows-x64.zip`（附 `.sha256`）。分步执行：
+
+```bash
+python -m build fetch      # 下载并校验全部组件
+python -m build assemble   # 装配 dist/stage/
+python -m build smoke      # python/mpv/vapoursynth 冒烟测试
+python -m build package    # 打确定性 zip
+python -m build verify --stage
+python -m build verify --asset dist/out
+```
+
+### 三层结构（照 100pangci/mpv_PlayKit_TLS 的做法）
+
+| 层 | 文件 | 职责 |
+| --- | --- | --- |
+| 规则 | `manifests/components.yml` | 组件怎么装、装到哪、什么许可。很少改 |
+| 版本 | `sources.lock.json` | 每个组件的 `version / url / sha256 / size`。换版本只动这里 |
+| 指纹 | `build/inputs.py` | 对 build/manifests/lock 逐文件哈希，写进 `BUILD_INFO.json` |
+
+换某个组件的版本：
+
+```bash
+python -m build.pin --id mpv --url <新资产直链>   # 下载→算哈希→写 lock
+python -m build.pin --list                        # 看当前都钉了什么
+python -m build.pin --check                       # 重新下载并校验全部
+```
+
+K7sfunc 用的是 GitHub 源码 tarball（`kind: git-tree`），所以换版本就是钉 fork 的新 commit：
+
+```bash
+python -m build.pin --id k7sfunc --version 1.9.0+pre.2 \
+  --url https://codeload.github.com/o5-null/K7sfunc/tar.gz/<40位commit>
+```
+
+### 上游同步
+
+`portable_config/` 与 `installer/` 是上游内容，由 `.github/workflows/sync-upstream.yml`
+每天自动整目录替换，并把上游 commit 记在 `upstream.json`。
+
+本仓库自己的东西全部放在 `build/`、`manifests/`、`.github/`，**不在上游目录里做任何修改**，
+因此同步永远不会产生冲突。自定义功能不在这里实现——它们在 K7sfunc fork 里。
+
+## 文档
+
+- [`docs/BUILD.md`](docs/BUILD.md) —— 构建链细节、CI、可复现性
+- [`docs/TOOLKIT.md`](docs/TOOLKIT.md) —— K7sfunc fork 的 `PLAYKIT_*`：预设、算子、如何加算法
+- [`docs/upstream-README.md`](docs/upstream-README.md) —— 上游 mpv_PlayKit 原始说明
+
+## 许可
+
+本仓库新增代码（`build/`、`manifests/`、`.github/`）为 MIT；`portable_config/` 与
+`installer/` 遵循上游 [LICENSE.MD](LICENSE.MD)；K7sfunc fork 为 GPL-3.0-or-later（`src/`）；
+mpv 与 VapourSynth 分别是 GPL-2.0-or-later / LGPL-2.1-or-later。发行包内 `licenses/THIRD_PARTY.md`
+列出了每个组件的实际版本与许可来源。

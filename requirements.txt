@@ -1,0 +1,2 @@
+# 构建期依赖（仅 python -m build 子命令需要），发布出去的 mpv 发行包运行时不依赖 Python
+PyYAML>=6.0

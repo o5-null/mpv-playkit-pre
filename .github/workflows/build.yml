@@ -1,0 +1,66 @@
+# 构建工作流：只产出 artifact，故意不发布 release、不推 tag。
+# 产物统一通过 Actions artifact 交付，避免仓库里出现游离的发布版本，
+# 也避免 tag 与 VERSION 文件产生版本号双份真相。
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    name: windows-x64
+    runs-on: windows-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: 安装构建期依赖
+        run: pip install -r requirements.txt
+
+      # 下载目录按 sources.lock.json 的哈希做 key：锁定文件不变就无需重新下载数百 MB 组件
+      - name: 恢复下载缓存
+        uses: actions/cache@v4
+        with:
+          path: .work/downloads
+          key: downloads-${{ runner.os }}-${{ hashFiles('sources.lock.json') }}
+
+      - name: 下载并校验组件
+        run: python -m build fetch
+
+      - name: 装配 stage 目录
+        run: python -m build assemble
+
+      - name: 运行冒烟测试
+        run: python -m build smoke
+
+      - name: 打包确定性 zip
+        run: python -m build package
+
+      - name: 校验 stage 目录
+        run: python -m build verify --stage
+
+      # 固定只发一个 zip：dist/out/ 下取第一个即可，用 bash 才能写命令替换
+      - name: 校验 zip 产物
+        shell: bash
+        run: python -m build verify --asset "$(ls dist/out/*.zip | head -1)"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpv-playkit-pre-windows-x64
+          path: dist/out/*
+          if-no-files-found: error
+          retention-days: 14
