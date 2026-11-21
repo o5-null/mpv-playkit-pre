@@ -16,6 +16,16 @@
 | `docs/` | `BUILD.md` 构建链、`DECISIONS.md` 决策与已知坑、`TOOLKIT.md` K7sfunc 预设层 |
 | `.work/`、`dist/` | 下载缓存与构建产物，均已 gitignore |
 
+## 邻近仓库
+
+本仓库在 `E:\code\dlssg-vfi\` 下，旁边是同一套东西的源码，改 K7sfunc 功能时直接用：
+
+- `..\k7sfunc` — K7sfunc 的 fork（PLAYKIT 预设、`RIFE_AJI` 等算子都在这里），push 后按 commit 钉进 `sources.lock.json`
+- `..\vsaji` — aji 插帧引擎的 VS 插件与构建脚本，产物 `dist\aji\` 决定 `vs-plugins\aji\` 里放什么
+- `..\k7sfunc-wiki`、`..\k7sfunc-wiki-pages`、`..\vs-framegen-wiki-pages` — 文档与静态页
+
+改上游仓库不在本仓库提交；本仓库只留 manifest/lock 与文档。
+
 ## 命令
 
 ```bash
