@@ -10,11 +10,11 @@
       "pinned_at": "2026-11-20T16:37:45Z"
     },
     "k7sfunc": {
-      "version": "1.9.0+pre.6",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/1701097db5f849263013ec081e5165ef84671a82",
-      "sha256": "69f44a27c81e4e5f33239f5d8fb6c1f6827e446d5e3989976a97417f440ebe61",
-      "size": 491324,
-      "pinned_at": "2026-11-20T19:06:01Z"
+      "version": "1.9.0+pre.7",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/9f5693a5c6e2f5b857575b85befe3a3b4916fb67",
+      "sha256": "3f2277abb31d99abe227a731f38d4392d8c374912d51cd47b9c167f532fe5e40",
+      "size": 496426,
+      "pinned_at": "2026-11-21T14:51:22Z"
     },
     "mpv": {
       "version": "20261111-git-bcde6b93cc",

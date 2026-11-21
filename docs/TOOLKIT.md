@@ -98,14 +98,16 @@ PLAYKIT_RUN(input, preset="auto", target_h=0, engine="auto", memc_engine="auto",
 ```
 
 `target_h=0` 且 `preset="auto"` 时不做任何处理。`engine` 取
-`artcnn/acnet/cugan/edi/ngu/none`，`memc_engine` 取 `rife_nv/rife_dml/none`。
+`artcnn/acnet/cugan/edi/ngu/none`，`memc_engine` 取 `rife_nv/aji/rife_dml/none`。
+`auto` 按 `rife_nv → aji → rife_dml → none` 降级；`aji` 只支持整数倍率（24→48 可以，
+24→60 这种 5/2 会报错后继续降级）。
 
 分步调用：
 
 | 函数 | 参数 | 调用的上游函数 |
 | --- | --- | --- |
 | `PLAYKIT_UPSCALE(clip, target_h, engine, gpu, gpu_m)` | engine: `artcnn/acnet/cugan/edi/ngu/none` | `ARTCNN_NV(model=8)` / `ACNET_STD(model=1)` / `CUGAN_NV(nr_lv=-1)` / `EDI_US_STD(cpu=True)` / `NGU_HQ()` |
-| `PLAYKIT_MEMC(clip, fps_in, fps_out, engine, gpu, gpu_t)` | — | `RIFE_NV` / `RIFE_DML`，帧率比用 `Fraction` 求最简整数比 |
+| `PLAYKIT_MEMC(clip, fps_in, fps_out, engine, gpu, gpu_t)` | engine: `rife_nv/aji/rife_dml/none` | `RIFE_NV` / `RIFE_AJI` / `RIFE_DML`，帧率比用 `Fraction` 求最简整数比；aji 要求整数倍 |
 | `PLAYKIT_DENOISE(clip, nr_lv, gpu)` | 默认 3.0 | `NLM_STD(nr_lv=...)` |
 | `PLAYKIT_DEBAND(clip, bdy_rth)` | 默认 48.0 | `DEBAND_STD(bdy_rth=...)` |
 | `PLAYKIT_FIT(clip, target_h)` | — | `core.resize.Lanczos` |
@@ -161,6 +163,22 @@ Lib/site-packages/vapoursynth/plugins/vsmlrt/
 Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/   # 可选：去噪模型
 vs-plugins/madVR/madVR64.ax                                 # NGU 相关
 ```
+
+- **vsaji（aji 插帧引擎）**：插件与运行时分开放，`rife_aji.dll` 进插件目录由 VS 自动加载，
+  其余是插件运行期 dlopen 的资源：
+
+```
+Lib/site-packages/vapoursynth/plugins/rife_aji.dll
+vs-plugins/aji/
+├─ aji.dll  aji_trt.dll  cudart64_13.dll  aji-runtime.json
+├─ trt/nvinfer_11.dll  trt/cudart64_13.dll   # 精简 TensorRT 运行时（必须完整，lean 只能建 IRuntime）
+├─ conf/rife_only_414.conf
+└─ rife/rife_v4.14.onnx
+```
+
+  即 vsaji 的 `dist/aji/` 整个目录给 `vs-plugins/aji/`，再把它的 `rife_aji.dll` 单独丢进插件目录。
+  `PLAYKIT_MEMC` 按插件自报的目录、同级/上级 `aji/`、`<包根>/vs-plugins/aji` 依次探测，
+  另可用环境变量 `AJI_PLUGIN`（DLL 路径）、`AJI_DIR`（运行时目录）指定。
 
 其余模型的来源是 <https://github.com/hooke007/dotfiles/releases/tag/mpv_addones> 里的
 `vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208` 等）。包里那五族是从那份资产里挑出来的，

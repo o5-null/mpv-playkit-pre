@@ -245,3 +245,25 @@
   `*.dist-info/` 目录，补丁包校验会因为"不明目录"失败——exclude 里要同时写 `"*.dist-info"`。
 - **overlay zip 的目录条目同样要 `/` 结尾**，且校验时的白名单判断要先 `rstrip("/")` 再比前缀，
   否则 `Lib/`、`Lib/site-packages/` 这些前缀链会被误判成"越界路径"。
+
+## 17. aji 作为插帧引擎：插件进 plugins/、运行时留在 vs-plugins/（fork `1.9.0+pre.7`）
+
+- **决策**：`PLAYKIT_MEMC` 新增 `aji` 引擎（`RIFE_AJI`，AnimeJaNai/libaji 原生 RIFE），
+  引擎顺序 `rife_nv → aji → rife_dml → none`。依赖按两个目录拆开：`rife_aji.dll` 进
+  `Lib/site-packages/vapoursynth/plugins/`（VapourSynth 自动加载），`aji/`（`aji.dll`、
+  `aji_trt.dll`、`cudart64_13.dll`、`aji-runtime.json`、`trt/nvinfer_11.dll`、`conf/`、
+  `rife/rife_v4.14.onnx`）进 `vs-plugins/aji/`（插件运行期按路径 dlopen）。
+- **原因**：aji 与 vs-mlrt 的 RIFE 是两条独立路径——它自带 conf 与 onnx（conf 只支持
+  RIFE-only 场景），一个目录即"引擎 + 模型"。`rife_aji.dll` 是 VS 插件，必须被自动加载；
+  它 dlopen 的 TensorRT 运行库与权重是资源，混进 `plugins/` 会被 VS 当插件扫描并刷错误。
+- **代价 / 限制**：只收 4:2:0 8/10bit（NV12/P010），factor 只支持整数（`fps_num % fps_den`
+  不整除就在建滤镜时报错，降级链继续）；必须带完整 TensorRT 运行时（`aji_create` 无条件建
+  IRuntime，lean `nvinfer` 只能建 IRuntime 不能建引擎）；每帧主机↔设备拷贝、实例内串行，
+  吞吐低于 `rife_nv`——所以排在它后面。
+- **暂不做补丁包**：vsaji 尚未发布可下载的 release（`o5-null/vsaji` 还不在 GitHub 上），
+  二进制只能按上面的两个目录手工放；等它发版后再加 `manifests/packs/vsaji.yml` 并 pin。
+- **实测**（RTX 3080）：640x360 P010 → 2x 出帧正常；`PLAYKIT_MEMC(engine="auto")` 在缺
+  `trt/trt_rtx` 时自动落到 aji；`PLAYKIT_RUN(preset="memc", memc_engine="aji")` 全绿；
+  24→60（5/2）按预期报"只支持整数倍率"并降级到 none。调试可用 `AJI_PLUGIN`（DLL）与
+  `AJI_DIR`（运行时目录）覆盖。每次建滤镜会多一行上游噪声
+  `Version: no return value(s) named aji, api, path`（插件注册签名问题，无害）。
