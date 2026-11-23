@@ -75,7 +75,7 @@ presets:
   - id: vfg
     key: ")"
     vpy: vs/MEMC_VFG_NV.vpy
-    label: 预设 补帧 VFG (DLC-vsNV)
+    label: 预设 补帧 VFG 2-6× (DLC-vsNV)
     requires: vsdlssg 引擎 vvfg
 
   - id: fsr4
