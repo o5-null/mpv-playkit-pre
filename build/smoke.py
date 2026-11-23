@@ -109,8 +109,10 @@ def smoke(stage: Path) -> None:
         try:
             # --idle=no：基准 mpv.conf 是 idle=yes（双击常驻），不显式关掉时
             # mpv 播完 2 帧仍不退出，子进程会挂到超时。
+            # --keep-open=no：基准 mpv.conf 还带 keep-open=yes，播到结尾（或 --frames
+            # 计数结束时）mpv 会停在 (Paused) 而不是退出，同样会挂到超时。
             proc = common.run(
-                [mpv, "--idle=no", "--vo=null", "--ao=null", "--frames=2",
+                [mpv, "--idle=no", "--keep-open=no", "--vo=null", "--ao=null", "--frames=2",
                  "--vf=vapoursynth=smoke_identity.vpy", LAVFI_SOURCE],
                 cwd=stage, timeout=300, env=NO_BYTECODE)
         finally:
