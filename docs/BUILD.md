@@ -217,9 +217,17 @@ python -m build.pin --id k7sfunc --version 1.9.0+pre.3 \
 ```
 python -m build.pin --pack vsdlssg --id engine-dlss45 --url <url>  # 钉版本
 python -m build pack --name vsdlssg                               # 只打一个
-python -m build pack                                              # 打全部
+python -m build pack                                              # 打全部（默认并行）
+python -m build pack --jobs 1                                     # 串行，便于看单包日志
 python -m build verify --pack --asset dist/out/<pack>.7z           # 校验产物（7z 或 zip 都收）
 ```
+
+多个档位包默认**并行**（`--jobs`，缺省取 `min(包数, 4)`）：每个包在独立子进程里走
+`assemble → config → 压缩 → 校验`，父进程按 `[包名]` 前缀转发日志。串行时三件套要
+15~20 分钟，几乎全花在两件事上——每个包都从零复制 615 MB 基础树再叠组件，以及
+`7z -mx=9` 的固实压缩；这两步互不独占同一份输入，所以并行能真正重叠。
+组件下载/解压仍先**串行**预取（各档位共用基础包组件，同时解同一份缓存会互相踩），
+预取完才开始并行装配。单包失败会等其余包跑完后汇总，一次性报出失败包名。
 
 清单里 `full: true` 时产出**全量包**：先把基础包装进同一个 stage，再叠本档组件，
 产物与基础包同构（唯一顶层目录，`...-windows-x64-<name>.7z`），用户只下一个。
