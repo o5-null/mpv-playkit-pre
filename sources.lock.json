@@ -10,11 +10,11 @@
       "pinned_at": "2026-11-23T09:21:00Z"
     },
     "mpv": {
-      "version": "2026.11.23",
-      "url": "https://github.com/o5-null/mpv/releases/download/playkit-2026.11.23/mpv-x86_64-playkit-2026.11.23.zip",
-      "sha256": "1f736931960a4d521f73736341a818353afa7b56923cf266daeafba55158cd67",
-      "size": 72519650,
-      "pinned_at": "2026-11-23T09:56:49Z"
+      "version": "mpv-x86_64-playkit-2026.11.23-2",
+      "url": "https://github.com/o5-null/mpv/releases/download/playkit-2026.11.23-2/mpv-x86_64-playkit-2026.11.23-2.zip",
+      "sha256": "4496d05585cd11a5547b1aef2c2e274b0279ec8742150beedf459e68f66202f4",
+      "size": 78309927,
+      "pinned_at": "2026-11-23T13:03:29Z"
     },
     "python": {
       "version": "3.15.2",

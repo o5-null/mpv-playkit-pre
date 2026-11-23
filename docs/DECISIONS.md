@@ -400,3 +400,30 @@
     `shaders/`（142MB）与 `fonts/`（14MB）按资源处理，不进哈希。
   - 基准 mpv.conf 引用的字体 `LXGW WenKai Mono Lite`（13.9MB，OFL）随包入库。
 
+## 25. 原生滤镜（零拷贝 DLSS-G）进菜单，并修好 menu.conf 的标记与禁用项（2026-11-23）
+
+- **决策**：
+  1. `manifests/config.yml` 增 `native` 段（`section` / `clear_label` / `clear_command` / `entries`），
+     `build/config.py: render_native()` 在 `menu.conf` 的 "VF 滤镜" 与 "着色器" 之间生成
+     "原生滤镜 (&P)" 段：`清空 (&C)` 与 `DLSS 帧生成 (&D)` → `2×`–`6×`，
+     命令形如 `set hwdec d3d11va; vf set playkit:multi=2:dll=vs-plugins/vdlssg.dll:proxy_dir=vs-plugins/dlss45`。
+     只有 `packs` 里列出的档位包（当前只有 `vsdlssg`）才生成整段，没有引擎的包不留点不动的项。
+  2. 标记行一律追加 `hidden=true`；未启用的预设不再写成 `#` 注释，而是保留命令 + `disabled=true`
+     （灰显不可点），标题里写清缺哪个组件。`input_uosc.conf` 是按键表，仍用 `#` 注释。
+  3. VS 预设的命令前缀 `set hwdec auto-copy;`，原生滤镜的命令带 `set hwdec d3d11va;`；
+     `清空` 同时 `vf clr playkit; set hwdec auto-copy`。
+  4. `mpv-src: video/filter/vf_playkit.c` 的相对路径解析改为"先工作目录、再 mpv.exe 目录"
+     （`pk_abs_path` / `pk_exe_relative_exists`），因为 NGX 只认绝对路径而工作目录会被
+     快捷方式、文件关联改掉。
+- **原因**：`select.lua` 解析 `menu.conf` 时只按 `\t+` 切分、不认 `#`，我们原来的 `# >>>`
+  标记与"本包未启用"注释在实测的 `menu-data` 里全变成了空菜单项（27 项里就有 12 条垃圾）；
+  而 `context_menu.lua` 只对 `hidden` / `disabled` 生效（`:209`、`:287`）。另一头，
+  `vf_playkit` 只在 `imgfmt == IMGFMT_D3D11 && multi > 1` 时走桥，`hwdec=auto-copy` 拿到的是
+  软件帧 → 静默直通、没有 2× 也不报错，所以命令必须顺带切解码模式。
+- **代价 / 边界**：
+  - 走原生滤镜必须 `hwdec=d3d11va`，切回 VS 预设时靠 `set hwdec auto-copy` 还原；两边都改
+    `hwdec` 会触发解码器重建（`UPDATE_HWDEC` → `queue_seek` 回当前时间点，不重开文件）。
+  - 引擎一进程一帧尺寸，换分辨率要重开文件；桥只有 DLSS-G，XeSS/VFG/FSR4 仍只有 VS 路径。
+  - 改了 `vf_playkit.c` 就得重编 mpv、重新 `build.pin` 钉新的 release，包内 mpv 才认相对路径。
+
+

@@ -10,7 +10,7 @@
 | `build/` | 打包链本体（本仓库唯一自己写的代码）：`__main__` 入口、fetch/assemble/smoke/package/verify/sync/pin、`pack.py` 打拓展包、`config.py` 按清单生成配置 |
 | `manifests/components.yml` | 组件**规则**（kind / 装到哪 / exclude / paths / license），不含版本号 |
 | `manifests/packs/*.yml` | 档位包的组件清单（`full: true` 为全量包，否则是补丁包）；版本同样进 lock，键是 `<pack>/<id>` |
-| `manifests/config.yml` | **配置清单**：VF 预设表（按键 / vpy / 名称 / 依赖）+ 每个档位包启用哪几个预设，`build/config.py` 据此生成配置 |
+| `manifests/config.yml` | **配置清单**：VF 预设表（按键 / vpy / 名称 / 依赖）+ 每个档位包启用哪几个预设 + `native` 原生滤镜段（menu.conf 里的独立块，目前只有 DLSS 帧生成），`build/config.py` 据此生成配置 |
 | `sources.lock.json` | 组件**版本**（version / url / sha256 / size），唯一版本真相 |
 | `configs/` | 本仓库的包布局文件（`portable.vs`、`vs-plugins.keep`、`configs/packs/` 下的许可与第三方说明） |
 | `portable_config/` | **本地维护**的基准配置（取自 mpv-lazy 最后发版）；只有 `shaders/` 由 `build.sync` 跟随上游整目录替换 |
@@ -56,6 +56,8 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
    `presets` 定义 VF 预设（按键 / vpy / 名称 / 依赖），`packs` 定义每个档位包启用哪几个；
    `build/config.py` 会把 `input_uosc.conf` 与 `menu.conf` 的标记区重新生成，并裁掉未启用的
    `vs/*.vpy`。**不要手改两份文件标记区里的内容，也不要手写某个包专用的配置副本。**
+   `native` 段生成 `menu.conf` 里"VF 滤镜"与"着色器"之间的原生滤镜块（目前是 `playkit` 滤镜的
+   DLSS 帧生成 2×–6×），只有列出的档位包才出现——没有引擎的包宁可整段没有，也不留点不动的项。
    `packs.base` 是中间基础 stage 的配置（`assemble` / `smoke` / `verify` 不带 `--pack` 时用它），
    只放 mpv + k7sfunc 基础依赖就能跑的预设，不是交付物；用户拿到的是 `vsdlssg` / `vs-mlrt` 两个包。
    算法/前端功能仍写进 K7sfunc fork（`o5-null/K7sfunc`），本仓库只按 commit 钉它。
@@ -79,7 +81,8 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 - 解 7z 依赖 7-Zip / `SEVEN_Z` / Windows 自带 `tar.exe`，没有就报 `找不到 7z 或 bsdtar`。
 - `.gitignore` 不支持行尾注释；`core.autocrlf` 必须保持 `false`，否则 `build sync` 后出现几百个假修改。
 - 缺模型/插件时 `PLAYKIT_*` 只降级并在 OSD 提示，不算 bug；`mpv.conf` 里空值选项的报错属于噪声，见 `build/smoke.py` 的 `NON_FATAL`。
-- 配置清单里"未启用"的预设不是删掉：`input_uosc.conf` / `menu.conf` 里保留整行并加 `#` 注释，注明缺哪个组件；vpy 才会被真正裁掉。新增预设要同时想清楚 `requires` 写什么。
+- 配置清单里"未启用"的预设不是删掉，但也不是写成 `#` 注释：`select.lua` 不认注释，每行都会变成菜单项。`menu.conf` 里未启用的预设保留命令并加 `disabled=true`（灰显不可点，标题写明缺什么），标记行加 `hidden=true`；`input_uosc.conf` 是按键表，注释安全，才用 `#`。vpy 会被真正裁掉。新增预设要同时想清楚 `requires` 写什么。
+- 原生滤镜（`playkit`）只吃 D3D11 硬件帧：`hwdec=auto-copy` 时它静默直通（没有 2×、也不报错），所以清单生成的命令是 `set hwdec d3d11va; vf set playkit:...`；反过来 VS 预设命令带 `set hwdec auto-copy` 前缀，避免用过原生滤镜后 `vf=vapoursynth` 吃到 D3D11 帧。
 - VS 插件只有放 `Lib/site-packages/vapoursynth/plugins/`（含子目录）才会被自动加载；`vs-plugins/` 里放 DLL 不生效。
 - VS R80 起不支持 API 3 插件：`vs-mlrt` 官方二进制全是 API 3，R82 直接拒绝，要用 API4 移植轮子（见 DECISIONS 第 11 条）。
 - 版本号 = `VERSION` + 提交短哈希，CI 可用 `PLAYKIT_VERSION` 覆盖；产物名统一带 `pre`（预览分支不保证兼容）。
