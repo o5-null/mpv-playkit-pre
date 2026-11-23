@@ -150,7 +150,8 @@ def install_git_tree(stage: Path, comp: dict, archive: Path) -> None:
             common.fail(f"{comp['id']}: 源码树缺少 {item['source']}（fork 是否已推送？）")
         target = stage / item["target"]
         if src.is_dir():
-            common.copy_tree(src, target)
+            # 上游 fork 把 __pycache__ 提交进了仓库，复制时一律剔除
+            common.copy_tree(src, target, ignore=["__pycache__", "*.pyc"])
         else:
             common.copy_file(src, target)
     common.log(f"{comp['id']}: 复制 {len(comp['paths'])} 条路径")

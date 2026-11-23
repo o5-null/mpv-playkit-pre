@@ -283,10 +283,11 @@ def remove_tree(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def copy_tree(src: Path, dst: Path) -> None:
+def copy_tree(src: Path, dst: Path, ignore: list[str] | None = None) -> None:
     if not src.exists():
         return
-    shutil.copytree(src, dst, dirs_exist_ok=True)
+    patterns = shutil.ignore_patterns(*ignore) if ignore else None
+    shutil.copytree(src, dst, dirs_exist_ok=True, ignore=patterns)
 
 
 def copy_file(src: Path, dst: Path) -> None:
