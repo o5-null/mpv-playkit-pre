@@ -141,7 +141,7 @@ K7sfunc 的模型和 GPU 组件不在源码里。分三种情况：
 - **基础包自带**：`akarin`/`mvtools`/`fmtconv`/`zsmooth`/`bm3d`/`bwdif`/`vivtc`/`tivtc`/
   `vszip`/`znedi3` 这 10 个插件（来自 PyPI 的 API 4 轮子），落在
   `Lib/site-packages/vapoursynth/plugins/`，开箱即可用。
-- **`tensorrt-rtx` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + 六族模型 + `onnx` 等
+- **`vs-mlrt` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + 六族模型 + `onnx` 等
   Python 依赖，装完 `CUGAN_NV` / `ARTCNN_NV` / `RIFE_NV` / `DRBA_NV` / `DPIR_DBLK_NV`
   即可出帧（缺模型时 K7sfunc 会报"所请求的模型缺失"，不会黑屏）：
 
@@ -184,27 +184,30 @@ vs-plugins/aji/
 `vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208` 等）。包里那五族是从那份资产里挑出来的，
 另外也单独发在本仓库的 Release（tag `models-v1`，一族一个 zip），想只补某一族就从那里下。
 
-## 拓展包与它的两个目录
+## 档位包与它的两个目录
 
-基础包里没有帧生成插件，也没有 TensorRT 推理插件——它们由补丁包（`manifests/packs/*.yml`）
-以 overlay zip 的形式叠加到包根。补丁包落地时**只碰两个位置**：
+四个帧生成插件 DLL 在**所有档位**的基础包里（`vs-plugins/`，由 `MEMC_*.vpy` 首次使用时
+`LoadPlugin`）；TensorRT 推理插件、引擎包、模型由档位包（`manifests/packs/*.yml`）带上。
+当前两个档位都是**全量包**（`full: true`），各自带完整播放器，落地时**只碰两个位置**：
 
 ```
+vs-plugins/                              # 资源：引擎包、模型、插件 DLL
+├─ vdlssg.dll  vxessfg.dll  vvfg.dll  vfsr4.dll   # 帧生成插件（基础包自带）
+├─ dlss45/                              # DLSS-G 的 NGX 引擎包（vsdlssg 档）
+├─ xessfg/                              # XeSS-FG 的引擎包（vsdlssg 档）
+└─ tensorrt-rtx/                        # vs-mlrt 档的第三方说明/许可
 Lib/site-packages/vapoursynth/plugins/   # 插件 DLL，由 VapourSynth 自动加载（含子目录）
-└─ vsmlrt/                               # tensorrt-rtx 包：vstrt_rtx.dll + vsmlrt-cuda/ 运行库
-vs-plugins/                              # 资源：模型、引擎包、madVR
-└─ bin/
-   ├─ dlss45/                            # DLSS-G 的 NGX 引擎包（MEMC_DLSSG_NV.vpy 按此路径找）
-   └─ xessfg/                            # XeSS-FG 的引擎包
+└─ vsmlrt/                              # vs-mlrt 档：vstrt_rtx.dll + vsmlrt-cuda/ 运行库 + models/
 ```
 
 区别是**机制不同、不能合并**：
 
 - `plugins/` 是 VapourSynth 自己的插件目录，进程启动时扫描并 `LoadPlugin`；放在 `vs-plugins/`
-  里不会被自动加载（`VAPOURSYNTH_PLUGIN_PATH` 也不是它认的变量）。
+  里不会被自动加载（`VAPOURSYNTH_PLUGIN_PATH` 也不是它认的变量），所以帧生成 DLL 由
+  `MEMC_*.vpy` 显式 `LoadPlugin`。
 - 引擎包与模型是**插件运行时按相对路径查的文件**，不是可加载模块。例如 DLSS-G 的代理在
-  `<插件目录>\dlss45` 找引擎；`MEMC_DLSSG_NV.vpy` 因此按 `vs-plugins/bin/dlss45` 探测，
-  再通过 `proxy_dir` 参数指过去。
+  `<插件目录>\dlss45` 找引擎；`MEMC_DLSSG_NV.vpy` 因此按 `vs-plugins/bin/dlss45`、
+  `vs-plugins/dlss45` 依次探测，再通过 `proxy_dir` 参数指过去。
 
 `vstrt_rtx.dll` 的 TRT 运行库必须与它同级放在 `vsmlrt-cuda/` 子目录里：插件用
 `dllDir()/vsmlrt-cuda/tensorrt_rtx_<主>_<次>.dll` 做延迟加载预取，放别处只会在第一次推理时

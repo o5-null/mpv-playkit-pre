@@ -1,0 +1,85 @@
+# 档位包：vsdlssg —— 帧生成引擎全量包（默认档）
+#
+# 定位：**全量包**（full: true）——自带完整播放器（自维护 mpv + Python + VapourSynth +
+# K7sfunc 预设层），再补上帧生成引擎，用户只需下这一个 zip。
+# 基础包自带四个插件 DLL（vs-plugins/vdlssg.dll 等），但没有引擎谁都跑不起来，
+# 本档补齐"能跑"的那部分：
+#   1. vs-plugins/dlss45  DLSS-G 4.5 的 NGX 引擎，含 sm86（RTX 20/30 系）解锁
+#   2. vs-plugins/xessfg  XeSS-FG 的 NGX 引擎
+# aji（AnimeJaNai libaji）插帧的运行时装在下面 vsaji 组件里，本次构建**暂缓**（disable）。
+#
+# 这是**默认档**：大多数用户只下本包即可（default: true）。
+# 需要 TensorRT-RTX 超分/推理的改下 vs-mlrt 全量包，两包互斥、互不叠加。
+#
+# 目录分工（不能合并）：
+#   vs-plugins/<引擎>/          <- 引擎运行时，MEMC_*.vpy 按此路径查找（旧的 bin/<引擎>/ 也认）
+#   Lib/site-packages/vapoursynth/plugins/rife_aji.dll  <- aji 插件，R82 自动加载（暂缓）
+#   vs-plugins/aji/             <- libaji 运行时（aji.dll / nvinfer / conf / rife，暂缓）
+
+schema: 1
+name: vsdlssg
+title: 帧生成引擎全量包（默认档）
+default: true
+full: true
+summary: >-
+  完整播放器（自维护 mpv + Python + VapourSynth + K7sfunc 预设层）再加 DLSS-G 4.5 / XeSS-FG
+  的 NGX 引擎（解锁 sm86，RTX 20/30 系可用），解压即用，不依赖 CUDA 工具包。
+  aji（AnimeJaNai）插帧暂缓，见文末组件。
+
+components:
+  # o5-null/vs-framegen v0.2.0 的引擎资产，条目本来就是 vs-plugins/bin/dlss45/... 开头。
+  # 注意 dlssg_sm86/logs/.gitkeep 不能丢：日志目录不存在时引擎会静默失败。
+  - id: engine-dlss45
+    kind: archive
+    summary: DLSS-G 4.5 NGX 引擎（含 sm86 后端）
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    provides:
+      - vs-plugins/dlss45/dlssg2f.exe
+      - vs-plugins/dlss45/dlssg_sm86.ini
+      - vs-plugins/dlss45/version.dll
+      - vs-plugins/dlss45/dlssg_sm86/logs/.gitkeep
+      - vs-plugins/dlss45/dlssg_sm86/runtime/nvngx_dlssg.dll
+
+  - id: engine-xessfg
+    kind: archive
+    summary: XeSS-FG 的 NGX 引擎（含 sm86 后端）
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    provides:
+      - vs-plugins/xessfg/dlssg2f.exe
+      - vs-plugins/xessfg/version.dll
+      - vs-plugins/xessfg/dlssg_sm86/logs/.gitkeep
+      - vs-plugins/xessfg/dlssg_sm86/runtime/nvngx_dlssg.dll
+
+  # aji 发行包（o5-null/vsaji 的 release）根目录是 aji/，里面是扁平布局：
+  # rife_aji.dll 与 aji.dll / aji_trt.dll / nvinfer 同层。
+  # **暂缓**：vsaji 还没定版（构建/发行流程未收尾），本次构建先用 disable 挂起，
+  # 不装 aji 运行时、也不带它用的 nvinfer 引擎。要试就 `build pack --name vsdlssg --with vsaji`，
+  # 前提是锁里已有 vsdlssg/vsaji（`build.pin --pack vsdlssg --id vsaji --file <zip>`）。
+  # 启用时：整棵 aji/ 落到 vs-plugins/；插件再复制一份到 vapoursynth/plugins/ 让 R82
+  # 自动加载（插件按 Version()["aji"] / 同级 aji/ 找 dll，DECISIONS 17 记录了这个布局）。
+  - id: vsaji
+    kind: archive
+    summary: aji（AnimeJaNai libaji）RIFE 插帧运行时 + 模型（暂缓）
+    upstream: o5-null/vsaji
+    license: GPL-3.0-or-later
+    disable: true
+    extract: zip
+    install_to: vs-plugins
+    copies:
+      - source: vs-plugins/aji/rife_aji.dll
+        target: Lib/site-packages/vapoursynth/plugins/rife_aji.dll
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/rife_aji.dll
+      - vs-plugins/aji/rife_aji.dll
+      - vs-plugins/aji/aji.dll
+      - vs-plugins/aji/aji_trt.dll
+      - vs-plugins/aji/cudart64_13.dll
+      - vs-plugins/aji/trt/nvinfer_11.dll
+      - vs-plugins/aji/conf/rife_only_414.conf
+      - vs-plugins/aji/rife/rife_v4.14.onnx

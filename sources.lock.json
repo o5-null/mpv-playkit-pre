@@ -2,13 +2,6 @@
   "schema": 1,
   "platform": "windows-x64",
   "components": {
-    "framegen/vs-framegen": {
-      "version": "0.1.0",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.1.0/vs-framegen-0.1.0-mpv-lazy.zip",
-      "sha256": "2c0670452713fc117a66f28fb5634778b3f83f22ff026da026fb45a6448a9128",
-      "size": 43135442,
-      "pinned_at": "2026-11-20T16:37:45Z"
-    },
     "k7sfunc": {
       "version": "1.9.0+pre.7",
       "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/9f5693a5c6e2f5b857575b85befe3a3b4916fb67",
@@ -30,124 +23,131 @@
       "size": 13740486,
       "pinned_at": "2026-11-20T15:26:43Z"
     },
-    "tensorrt-rtx/models-artcnn": {
-      "version": "models-artcnn",
-      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-artcnn.zip",
-      "sha256": "5a12144c302ecc750ca156a795b0ac19d43d06721c6cbb1e59c33786a4ebccdc",
-      "size": 21992043,
-      "pinned_at": "2026-11-20T18:43:16Z"
-    },
-    "tensorrt-rtx/models-cugan": {
-      "version": "vs-k7sfunc.0_0_7.cugan-models",
-      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_0_7.cugan-models.7z",
-      "sha256": "95cd1c858f478a0bb408ac50fcc1e8fecf281c6073d9a5ff7c5d61f40c52ac12",
-      "size": 13713218,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/models-dpir": {
-      "version": "vs-k7sfunc.0_2_0.dpir-models",
-      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_2_0.dpir-models.7z",
-      "sha256": "1d3446df83286aa5adeb8ba1a0ef0ae2ee87bf6b9873a1518cccfb8b153b9474",
-      "size": 482254994,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/models-drba": {
-      "version": "models-drba",
-      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-drba.zip",
-      "sha256": "05dbef253df6560023e025b48742f8385cb2a7f1c0a2b91f1e956e573b883920",
-      "size": 247701808,
-      "pinned_at": "2026-11-20T18:44:38Z"
-    },
-    "tensorrt-rtx/models-generic": {
-      "version": "models-generic",
-      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-generic.zip",
-      "sha256": "1c2be4aa7555bb72bf9cc4cc5b0c65fa5c9abc06923f388c1ed2025dc21a99d1",
-      "size": 1946522,
-      "pinned_at": "2026-11-20T18:43:12Z"
-    },
-    "tensorrt-rtx/models-rife": {
-      "version": "models-rife",
-      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-rife.zip",
-      "sha256": "35dadc3de7ca51dfee372c50822aa30dc1be6b5224e31860943b36386ce07df4",
-      "size": 102928959,
-      "pinned_at": "2026-11-20T18:43:28Z"
-    },
-    "tensorrt-rtx/models-rife-v2": {
-      "version": "models-rife-v2",
-      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-rife-v2.zip",
-      "sha256": "5f0fdf11fb1ea8595974393a42109123dd1614486979284a294decf926ca575f",
-      "size": 102950134,
-      "pinned_at": "2026-11-20T18:43:42Z"
-    },
-    "tensorrt-rtx/py-ml-dtypes": {
-      "version": "0.7.0-cp315",
-      "url": "https://files.pythonhosted.org/packages/39/78/bc623555aa81a017167f38449faeb57e945e36d9a8de5b5c36b16c695b1b/ml_dtypes-0.7.0-cp315-cp315-win_amd64.whl",
-      "sha256": "9a8befe9c3610745515af48696044366b0e15accfcad12350c457fba5443ed21",
-      "size": 477450,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/py-numpy": {
-      "version": "2.5.5-cp315",
-      "url": "https://files.pythonhosted.org/packages/5a/7e/a4c5b4b30dbab285b380130dbf780bccece06de020221491058ea2c66310/numpy-2.5.5-cp315-cp315-win_amd64.whl",
-      "sha256": "ae9cfe4e985139c5f2db69d4310de7348bd0abc02cfdc06991c4419065f6fdca",
-      "size": 12710024,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/py-onnx": {
-      "version": "1.23.2-cp312-abi3",
-      "url": "https://files.pythonhosted.org/packages/38/ce/102fd4a0b2a6d111a9c86745e084c4c68c0ee020eaa359a03a8d43e4646f/onnx-1.23.2-cp312-abi3-win_amd64.whl",
-      "sha256": "9b382ba898a7c142a0801d03cf04ecabced96c1543c7b643a86f0928143802de",
-      "size": 7872489,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/py-onnxconverter-common": {
-      "version": "1.16.0",
-      "url": "https://files.pythonhosted.org/packages/4a/67/8dca1868a6e226f8d3f7d666cb6a48b79a60aad5267b16b24627cd8d9eb8/onnxconverter_common-1.16.0-py2.py3-none-any.whl",
-      "sha256": "df39ee96f17fff119dff10dd245467651b60b9e8a96020eb93402239794852f7",
-      "size": 89511,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/py-packaging": {
-      "version": "26.3",
-      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
-      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
-      "size": 129956,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/py-protobuf": {
-      "version": "7.36.2-cp310-abi3",
-      "url": "https://files.pythonhosted.org/packages/8a/55/b77bda4e5e5f5971fb51b07663694690e9afdb9402136c16a522bd621cad/protobuf-7.36.2-cp310-abi3-win_amd64.whl",
-      "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353",
-      "size": 456514,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/py-typing-extensions": {
-      "version": "4.16.0",
-      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
-      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
-      "size": 45571,
-      "pinned_at": "2026-11-20T18:07:02Z"
-    },
-    "tensorrt-rtx/trt-rtx-libs": {
-      "version": "16.2.2+alice.1",
-      "url": "https://github.com/AliceTeaParty/vapoursynth-api4-wheels/releases/download/vs-mlrt-v16.2.6%2Balice.1/vs_tensorrt_rtx_cu129-16.2.2%2Balice.1-py3-none-win_amd64.whl",
-      "sha256": "038a09b3ebc1c17f517bbb09b13ad60195a94182c01a050f75581b93cbd72601",
-      "size": 84804530,
-      "pinned_at": "2026-11-20T17:03:58Z"
-    },
-    "tensorrt-rtx/vstrt-rtx": {
-      "version": "16.2.2+alice.1",
-      "url": "https://github.com/AliceTeaParty/vapoursynth-api4-wheels/releases/download/vs-mlrt-v16.2.6%2Balice.1/vs_trt_rtx_cu129-16.2.2%2Balice.1-py3-none-win_amd64.whl",
-      "sha256": "dfbba8ac2095821c8e08168dacae00f9396541cd451ef7012e63ffd1cd213865",
-      "size": 231284,
-      "pinned_at": "2026-11-20T17:03:47Z"
-    },
     "vapoursynth": {
       "version": "R82",
       "url": "https://files.pythonhosted.org/packages/09/d7/f67e68a7bf35dc24bdff34b30d14baee5b726790c0bed8cba449790dbc33/vapoursynth-82-cp312-abi3-win_amd64.whl",
       "sha256": "dbde9930d4e85de4eb220e05a0314edb7469b9016c5c58a279844b90da4a32b1",
       "size": 23728996,
       "pinned_at": "2026-11-20T15:27:00Z"
+    },
+    "vs-framegen-dlls": {
+      "version": "0.2.0",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0-mpv-lazy.zip",
+      "sha256": "0ad8b16a86930e8567b198764e8dcc7992017eb171667f969da46c4ba3df7c82",
+      "size": 43193700,
+      "pinned_at": "2026-11-23T08:48:32Z"
+    },
+    "vs-mlrt/models-artcnn": {
+      "version": "models-artcnn",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-artcnn.zip",
+      "sha256": "5a12144c302ecc750ca156a795b0ac19d43d06721c6cbb1e59c33786a4ebccdc",
+      "size": 21992043,
+      "pinned_at": "2026-11-20T18:43:16Z"
+    },
+    "vs-mlrt/models-cugan": {
+      "version": "vs-k7sfunc.0_0_7.cugan-models",
+      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_0_7.cugan-models.7z",
+      "sha256": "95cd1c858f478a0bb408ac50fcc1e8fecf281c6073d9a5ff7c5d61f40c52ac12",
+      "size": 13713218,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/models-dpir": {
+      "version": "vs-k7sfunc.0_2_0.dpir-models",
+      "url": "https://github.com/hooke007/dotfiles/releases/download/mpv_addones/vs-k7sfunc.0_2_0.dpir-models.7z",
+      "sha256": "1d3446df83286aa5adeb8ba1a0ef0ae2ee87bf6b9873a1518cccfb8b153b9474",
+      "size": 482254994,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/models-drba": {
+      "version": "models-drba",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-drba.zip",
+      "sha256": "05dbef253df6560023e025b48742f8385cb2a7f1c0a2b91f1e956e573b883920",
+      "size": 247701808,
+      "pinned_at": "2026-11-20T18:44:38Z"
+    },
+    "vs-mlrt/models-generic": {
+      "version": "models-generic",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-generic.zip",
+      "sha256": "1c2be4aa7555bb72bf9cc4cc5b0c65fa5c9abc06923f388c1ed2025dc21a99d1",
+      "size": 1946522,
+      "pinned_at": "2026-11-20T18:43:12Z"
+    },
+    "vs-mlrt/models-rife": {
+      "version": "models-rife",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-rife.zip",
+      "sha256": "35dadc3de7ca51dfee372c50822aa30dc1be6b5224e31860943b36386ce07df4",
+      "size": 102928959,
+      "pinned_at": "2026-11-20T18:43:28Z"
+    },
+    "vs-mlrt/models-rife-v2": {
+      "version": "models-rife-v2",
+      "url": "https://github.com/o5-null/mpv-playkit-pre/releases/download/models-v1/models-rife-v2.zip",
+      "sha256": "5f0fdf11fb1ea8595974393a42109123dd1614486979284a294decf926ca575f",
+      "size": 102950134,
+      "pinned_at": "2026-11-20T18:43:42Z"
+    },
+    "vs-mlrt/py-ml-dtypes": {
+      "version": "0.7.0-cp315",
+      "url": "https://files.pythonhosted.org/packages/39/78/bc623555aa81a017167f38449faeb57e945e36d9a8de5b5c36b16c695b1b/ml_dtypes-0.7.0-cp315-cp315-win_amd64.whl",
+      "sha256": "9a8befe9c3610745515af48696044366b0e15accfcad12350c457fba5443ed21",
+      "size": 477450,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/py-numpy": {
+      "version": "2.5.5-cp315",
+      "url": "https://files.pythonhosted.org/packages/5a/7e/a4c5b4b30dbab285b380130dbf780bccece06de020221491058ea2c66310/numpy-2.5.5-cp315-cp315-win_amd64.whl",
+      "sha256": "ae9cfe4e985139c5f2db69d4310de7348bd0abc02cfdc06991c4419065f6fdca",
+      "size": 12710024,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/py-onnx": {
+      "version": "1.23.2-cp312-abi3",
+      "url": "https://files.pythonhosted.org/packages/38/ce/102fd4a0b2a6d111a9c86745e084c4c68c0ee020eaa359a03a8d43e4646f/onnx-1.23.2-cp312-abi3-win_amd64.whl",
+      "sha256": "9b382ba898a7c142a0801d03cf04ecabced96c1543c7b643a86f0928143802de",
+      "size": 7872489,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/py-onnxconverter-common": {
+      "version": "1.16.0",
+      "url": "https://files.pythonhosted.org/packages/4a/67/8dca1868a6e226f8d3f7d666cb6a48b79a60aad5267b16b24627cd8d9eb8/onnxconverter_common-1.16.0-py2.py3-none-any.whl",
+      "sha256": "df39ee96f17fff119dff10dd245467651b60b9e8a96020eb93402239794852f7",
+      "size": 89511,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/py-packaging": {
+      "version": "26.3",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "size": 129956,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/py-protobuf": {
+      "version": "7.36.2-cp310-abi3",
+      "url": "https://files.pythonhosted.org/packages/8a/55/b77bda4e5e5f5971fb51b07663694690e9afdb9402136c16a522bd621cad/protobuf-7.36.2-cp310-abi3-win_amd64.whl",
+      "sha256": "a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353",
+      "size": 456514,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/py-typing-extensions": {
+      "version": "4.16.0",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "size": 45571,
+      "pinned_at": "2026-11-20T18:07:02Z"
+    },
+    "vs-mlrt/trt-rtx-libs": {
+      "version": "16.2.2+alice.1",
+      "url": "https://github.com/AliceTeaParty/vapoursynth-api4-wheels/releases/download/vs-mlrt-v16.2.6%2Balice.1/vs_tensorrt_rtx_cu129-16.2.2%2Balice.1-py3-none-win_amd64.whl",
+      "sha256": "038a09b3ebc1c17f517bbb09b13ad60195a94182c01a050f75581b93cbd72601",
+      "size": 84804530,
+      "pinned_at": "2026-11-20T17:03:58Z"
+    },
+    "vs-mlrt/vstrt-rtx": {
+      "version": "16.2.2+alice.1",
+      "url": "https://github.com/AliceTeaParty/vapoursynth-api4-wheels/releases/download/vs-mlrt-v16.2.6%2Balice.1/vs_trt_rtx_cu129-16.2.2%2Balice.1-py3-none-win_amd64.whl",
+      "sha256": "dfbba8ac2095821c8e08168dacae00f9396541cd451ef7012e63ffd1cd213865",
+      "size": 231284,
+      "pinned_at": "2026-11-20T17:03:47Z"
     },
     "vs-plugin-akarin": {
       "version": "1.5.0",
@@ -218,6 +218,20 @@
       "sha256": "cdf00644eed5325c1916d96d0368e01572a20bf5d84dd1dc19ec2d84a45dbc5c",
       "size": 10909304,
       "pinned_at": "2026-11-20T18:08:48Z"
+    },
+    "vsdlssg/engine-dlss45": {
+      "version": "0.2.0",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/engine-dlss45-mpv-lazy.zip",
+      "sha256": "e8a3e72aa65212104e05a0f811a2838483ef02c070925fd06c931c563c87fc8d",
+      "size": 21460515,
+      "pinned_at": "2026-11-23T08:48:32Z"
+    },
+    "vsdlssg/engine-xessfg": {
+      "version": "0.2.0",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/engine-xessfg-mpv-lazy.zip",
+      "sha256": "0ae2041674219863527948444d30c2959c533687086cfc3665483d75e0a12dd0",
+      "size": 21458704,
+      "pinned_at": "2026-11-23T08:48:32Z"
     },
     "yt-dlp": {
       "version": "2026.10.26",

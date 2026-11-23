@@ -41,7 +41,17 @@ def default_version(url: str) -> str:
     return name or "unknown"
 
 
-def measure(url: str, cid: str) -> tuple[str, int]:
+def measure(url: str, cid: str, local: str | None = None) -> tuple[str, int]:
+    """算 url（或 --file 指定的本地文件）的 sha256 与大小。
+
+    --file 是为"资产还没上传"准备的：先按本地产物算哈希写进 lock，url 仍然是
+    将来 release 的直链；上传的必须是同一个文件，否则 CI 校验会失败。
+    """
+    if local:
+        path = Path(local).expanduser().resolve()
+        if not path.is_file():
+            common.fail(f"--file 指向的文件不存在: {path}")
+        return common.sha256_file(path), path.stat().st_size
     dest = common.DOWNLOAD_DIR / "pin" / f"{cid}-{fetch.asset_filename(url)}"
     try:
         fetch._download(url, dest)
@@ -63,11 +73,11 @@ def _rules(pack: str | None = None) -> dict[str, dict]:
 
 
 def pin(cid: str, url: str, version: str | None, dry_run: bool,
-        pack: str | None = None) -> int:
+        pack: str | None = None, local_file: str | None = None) -> int:
     key = f"{pack}/{cid}" if pack and "/" not in cid else cid
     if key not in _rules(pack):
         common.fail(f"清单中没有组件: {key}")
-    digest, size = measure(url, key.replace("/", "__"))
+    digest, size = measure(url, key.replace("/", "__"), local_file)
     version = version or default_version(url)
     print(f"{key}: {version}")
     print(f"  url    {url}")
@@ -135,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--url", help="资产直链")
     parser.add_argument("--version", help="版本标签（默认取文件名主干）")
     parser.add_argument("--pack", help="拓展补丁包名（manifests/packs/<name>.yml）")
+    parser.add_argument("--file", help="用本地文件算哈希（资产尚未上传时用，url 仍写 --url）")
     parser.add_argument("--dry-run", action="store_true", help="只计算，不写 lock")
     parser.add_argument("--check", action="store_true", help="重新下载并校验 lock 内全部组件")
     parser.add_argument("--list", action="store_true", help="列出当前钉住的版本")
@@ -147,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
             return list_pins(args.pack)
         if not (args.id and args.url):
             parser.error("需要 --id 与 --url，或使用 --check / --list")
-        return pin(args.id, args.url, args.version, args.dry_run, args.pack)
+        return pin(args.id, args.url, args.version, args.dry_run, args.pack, args.file)
     except common.BuildError as exc:
         print(f"[build] 失败: {exc}", file=sys.stderr)
         return 1

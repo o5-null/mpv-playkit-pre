@@ -18,11 +18,16 @@ import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import common, fetch
+from . import common, fetch, overlay
 
 UPSTREAM_REPO = "hooke007/mpv_PlayKit"
 UPSTREAM_URL = f"https://github.com/{UPSTREAM_REPO}.git"
 SYNCED_DIRS = ("portable_config", "installer")
+
+
+def apply_overlay() -> None:
+    """把 overlay/ 叠回工作树，并补上 playkit-preset 的 include。"""
+    overlay.apply(common.ROOT)
 
 
 def remote_commit(ref: str = "main") -> str:
@@ -75,6 +80,7 @@ def replace_from_tarball(tarball: Path, commit: str) -> None:
                 common.log(f"已替换 {name}/")
             else:
                 common.log(f"上游没有 {name}/，跳过")
+        apply_overlay()
     finally:
         common.remove_tree(tmp)
 
@@ -98,6 +104,7 @@ def run(commit_arg: str | None = None, check: bool = False) -> int:
         return 0 if known == commit else 3
     if known == commit and not commit_arg:
         common.log(f"已是最新上游提交 {commit[:7]}，无需同步")
+        apply_overlay()
         return 3
     tarball = download_tarball(commit)
     replace_from_tarball(tarball, commit)

@@ -19,7 +19,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import common, fetch, inputs
+from . import common, fetch, inputs, overlay
 
 # 装配完成后必须存在的路径（相对包根；支持 glob）
 REQUIRED_ROOT = (
@@ -235,10 +235,7 @@ def copy_configuration(stage: Path) -> None:
     if not src.exists():
         common.fail("仓库缺少 portable_config/，请先同步上游")
     common.copy_tree(src, stage / "portable_config")
-    overlay = common.ROOT / "overlay"
-    if overlay.exists():
-        common.copy_tree(overlay, stage)
-        common.log("已应用 overlay/")
+    overlay.apply(stage)
 
 
 def copy_licenses(stage: Path, selected: list[dict]) -> None:
@@ -287,6 +284,14 @@ def write_build_info(stage: Path, version: str, selected: list[dict],
         }
         archive = archives.get(comp["id"])
         entry["size"] = archive.stat().st_size if archive and archive.exists() else None
+        local = fetch.local_override(comp)
+        if local is not None and archive and Path(archive).resolve() == local.resolve():
+            # 本地覆盖的资产没有经过锁校验，记真实哈希并保留锁里的值供对照
+            actual = common.sha256_file(archive)
+            if actual != (entry["sha256"] or ""):
+                entry["sha256_locked"] = entry["sha256"]
+                entry["sha256"] = actual
+            entry["overridden"] = True
         components.append(entry)
     info = {
         "name": common.PROJECT_NAME,
@@ -320,13 +325,16 @@ def verify_stage_minimum(stage: Path) -> None:
 
 
 def assemble(version: str, with_ids: list[str] | None = None,
-             without_ids: list[str] | None = None) -> Path:
+             without_ids: list[str] | None = None,
+             stage: Path | None = None) -> Path:
     selected = select_components(with_ids, without_ids)
     common.log(f"装配 {common.PROJECT_NAME} {version}，组件: "
                + ", ".join(f"{c['id']}={c.get('version') or 'repo'}" for c in selected))
     archives = fetch.fetch_all(selected)
 
-    stage = common.STAGE_ROOT / common.package_basename(version)
+    # stage 可指定：全量档包（pack 的 full: true）把基础包装进自己的 stage，
+    # 避免先装一份基础包再整目录复制一遍。
+    stage = stage or common.STAGE_ROOT / common.package_basename(version)
     common.remove_tree(stage)
     stage.mkdir(parents=True, exist_ok=True)
 

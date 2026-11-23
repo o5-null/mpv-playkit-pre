@@ -105,8 +105,33 @@ def _download(url: str, dest: Path, timeout: int = 300, retries: int = 3) -> Non
     common.fail(f"下载失败: {url}\n{last_error}")
 
 
+def local_override(comp: dict) -> Path | None:
+    """调试/未发布时的本地资产覆盖。
+
+    PLAYKIT_LOCAL_<ID>（id 大写，"/"→"__"、"-"→"_"）指向本地文件即可跳过下载与哈希；
+    mpv 另支援旧名 PLAYKIT_MPV_ARCHIVE，方便直接指向自己刚编出来的 zip。
+    覆盖会用实际文件参与装配，BUILD_INFO 里会记真实 sha256 并标出被覆盖的锁值。
+    """
+    keys = []
+    if comp.get("id") == "mpv":
+        keys.append("PLAYKIT_MPV_ARCHIVE")
+    keys.append("PLAYKIT_LOCAL_" + comp["id"].upper().replace("/", "__").replace("-", "_"))
+    for key in keys:
+        value = os.environ.get(key)
+        if value:
+            path = Path(value).expanduser()
+            if not path.is_file():
+                common.fail(f"{key} 指向的文件不存在: {path}")
+            return path
+    return None
+
+
 def fetch(comp: dict, force: bool = False) -> Path:
     """返回本地缓存路径，保证 SHA-256 与清单一致。"""
+    local = local_override(comp)
+    if local is not None:
+        common.log(f"本地覆盖 {comp['id']}: {local.name}（跳过下载与哈希校验）")
+        return local
     dest = common.DOWNLOAD_DIR / comp["id"].replace("/", "__") / asset_filename(comp)
     expected = comp["sha256"].strip().lower()
     if dest.exists() and not force:

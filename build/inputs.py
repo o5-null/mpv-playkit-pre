@@ -8,6 +8,7 @@
 portable_config/ 不进哈希——它 132MB 且由上游同步而来，其身份由
 upstream.json 里的 commit id 表示，那个文件本身已包含在哈希范围内。
 自维护的 K7sfunc fork 由 lock 里的 commit 钉住，同样不进哈希。
+overlay/ 是本仓库自己的配置覆盖，体量小且会影响最终包内容，必须进哈希。
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ INPUT_PATHS: tuple[str, ...] = (
     "build",
     "manifests",
     "sources.lock.json",
+    "overlay",
     "upstream.json",
     "VERSION",
     "requirements.txt",

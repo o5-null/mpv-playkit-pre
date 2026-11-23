@@ -205,6 +205,14 @@ def pack_names() -> list[str]:
     return sorted(p.stem for p in PACKS_DIR.glob("*.yml"))
 
 
+def default_pack() -> str | None:
+    """标记为 default: true 的补丁包（"默认档"），最多一个。"""
+    names = [n for n in pack_names() if load_pack(n).get("default")]
+    if len(names) > 1:
+        fail(f"只能有一个补丁包标 default: true，实际: {', '.join(names)}")
+    return names[0] if names else None
+
+
 def load_pack(name: str) -> dict:
     """读取补丁包清单：结构校验与基础清单一致。"""
     path = pack_path(name)

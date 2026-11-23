@@ -1,6 +1,8 @@
-# 拓展（挡位）补丁包：TensorRT-RTX
+# 档位包：vs-mlrt（TensorRT-RTX 推理）—— 全量包，自带基础播放器
 #
+# 包名沿用 vs-mlrt（插件家族的叫法），内容就是 TensorRT-RTX 那一档；
 # 对应上游 mpv_PlayKit 的 "vsNV" 定位：拿 GPU 跑超分/补帧的推理那一档。
+# 它是**可选档**：默认档是 vsdlssg（帧生成引擎），需要 TRT 超分/去块/DRBA 的下这个全量包。
 # 这里除了"插件 + 运行库"，还带六族模型（cugan / dpir 去块 / 通用超分 / ArtCNN /
 # RIFE / DRBA）与 Python 侧依赖（onnx 等），开箱即可跑 CUGAN_NV / ARTCNN_NV /
 # RIFE_NV / DRBA_NV / DPIR_DBLK_NV；DPIR 的两个去噪模型与 madVR 仍按需另下。
@@ -26,8 +28,9 @@
 # 预加载（vs-mlrt vstrt/win32.cpp 的 loadDLLs），所以两者必须保持这个相对关系。
 
 schema: 1
-name: tensorrt-rtx
-title: TensorRT-RTX 补丁包（推理档）
+name: vs-mlrt
+title: vs-mlrt 全量包（TensorRT-RTX 推理档）
+full: true
 summary: >-
   vs-mlrt 的 vstrt_rtx 插件（API 4 重编译）+ TensorRT-RTX 1.5 运行库 +
   onnx 等 Python 依赖 + 六族模型（cugan / dpir 去块 / 通用超分 / ArtCNN /

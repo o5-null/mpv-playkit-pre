@@ -125,12 +125,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "pack":
             names = args.name or common.pack_names()
             if not names:
-                common.fail("manifests/packs/ 下没有补丁包清单")
+                common.fail("manifests/packs/ 下没有档位包清单")
             out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
             for name in names:
                 archive = pack_mod.build_pack(name, version, out_dir,
                                               args.with_ids, args.without_ids)
-                common.log(f"补丁包完成: {archive}")
+                common.log(f"档位包完成: {archive}")
             return 0
 
         if args.cmd == "ci":

@@ -267,3 +267,77 @@
   24→60（5/2）按预期报"只支持整数倍率"并降级到 none。调试可用 `AJI_PLUGIN`（DLL）与
   `AJI_DIR`（运行时目录）覆盖。每次建滤镜会多一行上游噪声
   `Version: no return value(s) named aji, api, path`（插件注册签名问题，无害）。
+
+## 18. vpy 参数桥：下行走 `user-data`，上行写 sidecar 文件（fork `1.9.0+pre.7`）
+
+- **决策**：K7sfunc 的四个 `MEMC_*.vpy` 统一用 `k7f_bridge.py` 解析 mpv 注入的 `user_data`；
+  vpy 初始化完成后把**实际生效**的参数写到同目录 `<脚本名>.k7f.json`，`k7f_vpypar.lua` 每 0.5 s
+  轮询并在 OSD 上显示“设置/实际”两行。
+- **原因**：`vf=vapoursynth` 没有 `.command` 回调，vpy 也读不到 mpv 属性，没有实时回写通道；
+  写文件 + 轮询不依赖 IPC、不跨线程，是唯一稳的做法。报告与脚本同名同目录，是因为 vpy 不知道
+  `~~`，绝对路径的盘符冒号又不能塞进 `user-data`。
+- **代价**：OSD 最多 0.5 s 延迟；`vs/` 只读时上行失效（下行不受影响）；每部片多一个小 json，
+  换脚本后旧 sidecar 不会自动删，靠 `pid`/`ts` 判断新旧。写盘用临时文件 + `os.replace`，
+  被占用时重试 3 次再退回直接覆盖，失败只 warn 一次，不影响播放。
+- **打包**：`k7f_bridge.lua`、`k7f_vpypar.lua` 必须加进 `manifests/components.yml` 的 k7sfunc
+  `paths` 白名单；`vs/` 是整目录，`k7f_bridge.py` 自动随四个 vpy 进包。
+- **未接**：`k7f_playkit.lua` 生成的 `~~/k7f_playkit.vpy` 与 `MEMC_RIFE_AJI.vpy` 还没有
+  `publish()`，playkit 滤镜暂无“实际”行。
+
+## 19. 自定义配置放 overlay/，sync 后自动叠加（2026-11-23）
+
+- **决策**：`portable_config/` 继续只存上游内容；本仓库自己的配置改动放 `overlay/`，
+  按包根结构镜像。当前只有 `overlay/portable_config/playkit-preset.conf`。
+  `build.sync` 替换完上游目录后调用 `overlay.apply(ROOT)`：复制 overlay 文件，并在
+  `portable_config/mpv.conf` 末尾补一行 `include = "~~/playkit-preset.conf"`；
+  `build.assemble` 打包前对 stage 再执行一次同样的叠加。`overlay/` 纳入
+  `inputs_hash`，自定义配置变化会反映到 `BUILD_INFO.json`。
+- **原因**：上游 `portable_config/` 是每日整目录替换，直接改 `portable_config/mpv.conf`
+  会在下一次 sync 被删掉；用户明确要求保留自行修改的配置。用 overlay + include 片段，
+  既不阻止上游 `mpv.conf` 更新，也不依赖用户手工备份。
+- **代价 / 边界**：overlay 里如果放大文件，会整文件覆盖上游同名路径；目前只放一个小 preset。
+  `mpv.conf` 的 include 行由 `build/overlay.py` 自动补，**不要手动编辑上游副本里的自定义项**，
+  否则下一次 sync 会被删。
+- **首次落地**：preset 包含 `profile = playkit` 与 `[playkit]`
+  （`d3d11-flip=no`、`d3d11-sync-interval=0`）；`portable_config/mpv.conf` 末尾的 include
+  由构建链维护，实际文件在 `overlay/portable_config/playkit-preset.conf`。
+
+## 20. mpv 改用自维护构建，发行物是平铺 zip（2026-11-23）
+
+- **决策**：基础包的 `mpv` 组件不再取 shinchiro 的 7z，改为取
+  [o5-null/mpv](https://github.com/o5-null/mpv) release 上的
+  `mpv-x86_64-playkit-<版本>.zip`（`kind: archive`、`extract: zip`、`install_to: .`）。
+  zip 无顶层目录：`mpv.exe`、`mpv.com` 加 MSYS2 CLANG64 的动态依赖闭包平铺在根。
+  打包脚本 `mpv-src/scripts/package_windows.py` 用 `objdump -p` 递归解析导入表；
+  CI 在 `mpv-src/.github/workflows/playkit-windows.yml`（tag `playkit-*` 时发 release）。
+- **原因**：帧倍增要走 `vf_playkit`，必须 fork mpv 源码；shinchiro 的构建里没有这个滤镜，
+  而且他的发行物是 7z——本机与 CI 都没有 7z 解压/生成能力（只有 bsdtar 回退）。
+  用动态链接的平铺 zip，既能让 `mpv.exe` 直接跑，也能让 `build.pin` 用普通
+  `urllib`/`gh` 取件，不需要额外解压器。
+- **代价 / 边界**：包从 ~30MB 级涨到 ~60MB 级（DLL 闭包）；`d3dcompiler_43.dll` 不再随包，
+  `verify.check_stage` 也去掉了这一必需项（mpv 自带的 D3D11 路径不需要它，只有旧 dlss45
+  代理的 `version.dll` 链路才用到，属于引擎包的事）。本地试构建用
+  `PLAYKIT_MPV_ARCHIVE=<zip>` 覆盖下载，`BUILD_INFO.json` 会写实际 sha256 并标 `overridden`。
+
+## 21. 补丁包拆两档，并改为全量包交付：vsdlssg 默认、vs-mlrt 可选（2026-11-23）
+
+- **决策**：四个帧生成插件 DLL（约 0.6MB）进**基础包**，落在 `vs-plugins/`，由
+  `MEMC_*.vpy` 首次使用时 `LoadPlugin`（不复制进 `vapoursynth/plugins/`，避免双份加载）。
+  档位拆成 `manifests/packs/vsdlssg.yml`（`default: true`，装 `vs-plugins/dlss45` 与
+  `vs-plugins/xessfg`）和 `manifests/packs/vs-mlrt.yml`（原 tensorrt-rtx 整体改名，
+  lock 键改为 `vs-mlrt/*`）。两个清单都带 `full: true`：`assemble_pack` 先把基础包装进
+  同一个 stage（`assemble(version, stage=...)`），再叠档位组件，产出与基础包同构的全量 zip
+  （`...-windows-x64-<name>.zip`）；补丁形态（无顶层目录的覆盖 zip）代码保留但当前不用。
+- **原因**：原先 `framegen` 包既带 DLL 又带引擎，和"默认档"要表达的东西混在一起；
+  用户希望大多数人只下一个轻量默认包就能跑帧生成，TensorRT-RTX 作为可选推理档。
+  进一步地，用户明确"现在两个包都是全包，暂时没有补丁包"——补丁包要求用户先解基础包再覆盖，
+  对普通用户是额外一步，且覆盖式解压出错就毁基础包；全量包各自独立、可并行下载、
+  换档只需换目录。
+- **代价 / 边界**：默认档从 ~43MB 涨到 ~283MB（多了自维护 mpv 的 DLL 闭包与基础包本体），
+  vs-mlrt 到 ~1.1GB（stage 1.6GB）；磁盘上两个 stage 各占 ~655MB / ~1.6GB。`PACK_INFO.json` 增加
+  `full` 字段，`verify.check_full_pack_archive` 校验全量包（唯一顶层目录 + 基础必需项 +
+  `PACK_INFO.full` 为 true），`check_pack_archive` 会自动识别形态。
+  `common.default_pack()` 保证最多一个默认档。
+- **aji 暂缓**：`vsdlssg` 里的 `vsaji` 组件先 `disable: true`（运行时与 RIFE 模型都不装），
+  等 vsaji 定版后再 `build.pin --pack vsdlssg --id vsaji --file <zip>` 并用
+  `--with vsaji` 试装；部署布局仍按第 17 条（插件进 plugins/、运行时进 `vs-plugins/aji/`）。

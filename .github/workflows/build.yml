@@ -53,40 +53,26 @@ jobs:
       - name: 运行冒烟测试
         run: python -m build smoke
 
-      - name: 打包确定性 zip
-        run: python -m build package
-
       - name: 校验 stage 目录
         run: python -m build verify --stage
 
-      # 固定只发一个 zip：dist/out/ 下取第一个即可，用 bash 才能写命令替换
-      - name: 校验 zip 产物
-        shell: bash
-        run: python -m build verify --asset "$(ls dist/out/*.zip | head -1)"
-
-      - name: 上传基础包
-        uses: actions/upload-artifact@v7
-        with:
-          name: mpv-playkit-pre-windows-x64
-          path: dist/out/*
-          if-no-files-found: error
-          retention-days: 14
-
-      # 拓展包是叠加到基础包根目录的 overlay zip，体积另算，单独发一个 artifact
-      - name: 打拓展包
+      # 两个档位都是全量包（full: true），各自带完整播放器，产物在 dist/out/*-windows-x64-<档位>.zip
+      - name: 打全量包
         run: python -m build pack
 
-      - name: 校验拓展包
+      - name: 校验全量包
         shell: bash
         run: |
-          for f in dist/out/*-pack-*.zip; do
+          for f in dist/out/*-windows-x64-vsdlssg.zip dist/out/*-windows-x64-vs-mlrt.zip; do
             python -m build verify --pack --asset "$f"
           done
 
-      - name: 上传拓展包
+      - name: 上传全量包
         uses: actions/upload-artifact@v7
         with:
-          name: mpv-playkit-pre-packs-windows-x64
-          path: dist/out/*-pack-*.zip
+          name: mpv-playkit-pre-windows-x64
+          path: |
+            dist/out/*-windows-x64-vsdlssg.zip
+            dist/out/*-windows-x64-vs-mlrt.zip
           if-no-files-found: error
           retention-days: 14

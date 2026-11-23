@@ -24,7 +24,7 @@ def check_stage(stage: Path) -> None:
     if not stage.is_dir():
         common.fail(f"stage 目录不存在: {stage}（先跑 python -m build assemble）")
     missing = [rel for rel in (
-        "mpv.exe", "mpv.com", "d3dcompiler_43.dll",
+        "mpv.exe", "mpv.com",
         "yt-dlp.exe",
         "python.exe", "python3.dll", "portable.vs",
         "vsscript.dll", "libvapoursynth.dll", "vs-plugins",
@@ -118,9 +118,44 @@ def check_archive(archive: Path) -> None:
     common.log(f"归档校验通过: {archive.name}")
 
 
-def check_pack_archive(archive: Path) -> None:
-    """补丁包产物校验：无顶层目录、只含 vs-plugins/、Lib/ 插件与 PACK_INFO.json。"""
+def check_full_pack_archive(archive: Path) -> None:
+    """全量档包产物校验：与基础包同构（唯一顶层目录）+ 本档自己的 PACK_INFO.json。"""
     archive = resolve_asset(archive)
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+        roots = {n.split("/")[0] for n in names}
+        if len(roots) != 1:
+            common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
+        root = roots.pop()
+        required = ("PACK_INFO.json", "mpv.exe", "python.exe", "vsscript.dll",
+                    "portable_config/mpv.conf", "BUILD_INFO.json",
+                    "Lib/site-packages/vapoursynth/__init__.py",
+                    "Lib/site-packages/k7sfunc/__init__.py")
+        for rel in required:
+            if f"{root}/{rel}" not in names:
+                common.fail(f"全量档包缺少: {root}/{rel}")
+        for name in names:
+            if any(part in name.split("/") for part in FORBIDDEN_PARTS):
+                common.fail(f"压缩包含禁止目录: {name}")
+        _check_dir_entries(names)
+        info = json.loads(zf.read(f"{root}/PACK_INFO.json").decode("utf-8"))
+        if not info.get("full"):
+            common.fail("PACK_INFO.json 没有标记 full: true（全量档包）")
+    common.log(f"全量档包校验通过: {archive.name}")
+
+
+def check_pack_archive(archive: Path) -> None:
+    """补丁包产物校验：无顶层目录、只含 vs-plugins/、Lib/ 插件与 PACK_INFO.json。
+
+    全量档包（`full: true`）与基础包同构，有一个顶层目录——自动转到
+    check_full_pack_archive，这样 `build verify --pack --asset` 对两种形态都通用。
+    """
+    archive = resolve_asset(archive)
+    with zipfile.ZipFile(archive) as zf:
+        names = zf.namelist()
+    tops = {n.split("/")[0] for n in names}
+    if len(tops) == 1 and tops.pop() not in ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json"):
+        return check_full_pack_archive(archive)
     with zipfile.ZipFile(archive) as zf:
         names = zf.namelist()
         if not names:

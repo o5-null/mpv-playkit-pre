@@ -9,10 +9,11 @@
 | --- | --- |
 | `build/` | 打包链本体（本仓库唯一自己写的代码）：`__main__` 入口、fetch/assemble/smoke/package/verify/sync/pin、`pack.py` 打拓展包 |
 | `manifests/components.yml` | 组件**规则**（kind / 装到哪 / exclude / paths / license），不含版本号 |
-| `manifests/packs/*.yml` | 拓展包（挡位补丁包）的组件清单；版本同样进 lock，键是 `<pack>/<id>` |
+| `manifests/packs/*.yml` | 档位包的组件清单（`full: true` 为全量包，否则是 overlay 补丁包）；版本同样进 lock，键是 `<pack>/<id>` |
 | `sources.lock.json` | 组件**版本**（version / url / sha256 / size），唯一版本真相 |
 | `configs/` | 本仓库的包布局文件（`portable.vs`、`vs-plugins.keep`、`configs/packs/` 下的许可与第三方说明） |
 | `portable_config/`、`installer/` | **上游** hooke007/mpv_PlayKit 内容，每日整目录覆盖 |
+| `overlay/` | 本仓库自己的配置覆盖；`build.sync` 同步后自动叠加，`assemble` 打包前再叠加 |
 | `docs/` | `BUILD.md` 构建链、`DECISIONS.md` 决策与已知坑、`TOOLKIT.md` K7sfunc 预设层 |
 | `.work/`、`dist/` | 下载缓存与构建产物，均已 gitignore |
 
@@ -47,16 +48,19 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 
 ## 硬约束
 
-1. **不改 `portable_config/` 与 `installer/`**。同步是整目录替换，往里加文件也会被删掉；
-   自定义功能一律写进 K7sfunc fork（`o5-null/K7sfunc`），本仓库只按 commit 钉它。
+1. **不手改 `portable_config/` 与 `installer/`**。同步是整目录替换，手工加的文件会被删掉；
+   自定义配置写到 `overlay/`（目录结构镜像包根），`build.sync` 同步上游后会自动应用它，
+   并只在 `mpv.conf` 末尾补一行 include。算法/前端功能仍写进 K7sfunc fork
+   （`o5-null/K7sfunc`），本仓库只按 commit 钉它。
 2. **不手改 `sources.lock.json`**，用 `build.pin`；`components.yml` 里不要出现版本号（规则/版本分离）。
 3. **二进制不入库**：`.work/`、`dist/`、`*.7z`、`*.zip` 都在 gitignore；`portable_config/` 必须入库。
 4. `git-tree` 组件（k7sfunc）按 `paths` 白名单复制——fork 里新增的文件要同步加映射才会进包。
 5. CI 不在 push 触发（schedule / workflow_dispatch / pull_request），push 不会替你验证。
-6. **拓展包可覆盖配置，但不得含基础包运行时本体**：允许 `Lib/site-packages/vapoursynth/plugins/**`、
+6. **档位包分两种形态**：`full: true` 是全量包（自带基础包，产物同构于基础包 zip，当前两个档位
+   vsdlssg / vs-mlrt 都是这种）；不带 `full` 的补丁包只许放 `Lib/site-packages/vapoursynth/plugins/**`、
    `Lib/site-packages/` 下的纯 Python 包（补丁包自己的运行依赖，如 onnx/numpy）、
    `vs-plugins/**`、`portable_config/**`、`PACK_INFO.json`（配置不同就放进补丁包，解压直接覆盖）；
-   禁止 `mpv.exe`、`python.exe`、`vsscript.dll`、`vapoursynth.pyd`、`k7sfunc/`、`vapoursynth/` 本体等——覆盖式解压写错就毁基础包。
+   补丁包禁止 `mpv.exe`、`python.exe`、`vsscript.dll`、`vapoursynth.pyd`、`k7sfunc/`、`vapoursynth/` 本体等——覆盖式解压写错就毁基础包。
 
 ## 容易踩的坑
 

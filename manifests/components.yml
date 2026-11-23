@@ -33,16 +33,22 @@ project:
   description: 追踪最新组件版本的 Windows x64 便携 mpv 预览包（mpv_PlayKit 配置 + 自维护 K7sfunc）
 
 components:
-  # mpv 主体：shinchiro 的官方 Windows 构建（含 libavfilter / libplacebo）
+  # mpv 主体：我们自行维护的构建（o5-null/mpv fork，含 vf_playkit 帧倍增滤镜）。
+  # 发行物是该仓库 release 上的平铺 zip：mpv.exe / mpv.com + MSYS2 CLANG64 的
+  # 依赖 DLL 闭包（avcodec / libplacebo / libass / lua51 / vulkan-1 ...）。
+  # 与 shinchiro 官方构建的差别：这里动态链接，DLL 随包平铺，不再依赖系统里的
+  # MSYS2 运行时；也不再带 d3dcompiler_43.dll（Win10/11 系统自带 47 版）。
+  # 本地调试可用环境变量 PLAYKIT_MPV_ARCHIVE 指向自己编出来的 zip 做覆盖。
   - id: mpv
-    kind: mpv-7z
-    summary: mpv 播放器（shinchiro 构建）
-    upstream: shinchiro/mpv-winbuild-cmake
+    kind: archive
+    summary: mpv 播放器（自维护构建，含 vf_playkit）
+    upstream: o5-null/mpv
     license: GPL-2.0-or-later
-    members:
+    extract: zip
+    install_to: .
+    provides:
       - mpv.exe
       - mpv.com
-      - d3dcompiler_43.dll
 
   # yt-dlp 官方单文件可执行（Windows）。mpv 的 ytdl_hook 会在包根找它，
   # 所以在线播放（YouTube/Bilibili 等）开箱可用。属于基础包，不是依赖包。
@@ -208,6 +214,29 @@ components:
       - Lib/site-packages/vapoursynth/plugins/znedi3.dll
       - Lib/site-packages/vapoursynth/plugins/nnedi3_weights.bin
 
+  # 帧生成插件的四个 VS 插件 DLL（约 0.6 MB），基础包自带，开箱能 `core.std.LoadPlugin`。
+  # 引擎不在这里：DLSS-G / XeSS-FG 的 NGX 引擎包按档位走 manifests/packs/vsdlssg.yml。
+  # 落点放在 vs-plugins/ 而不是 vapoursynth/plugins/：MEMC_*.vpy 先 hasattr 检查、
+  # 没有再 LoadPlugin 这个路径，避免"自动加载 + 手动加载"两份实例。
+  - id: vs-framegen-dlls
+    kind: archive
+    summary: 帧生成插件 DLL（vdlssg / vxessfg / vvfg / vfsr4）
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    # 发行包里的引擎目录（v0.2.0 起是 vs-plugins/dlss45、vs-plugins/xessfg，
+    # 旧版是 vs-plugins/bin/<引擎>）留给补丁包
+    exclude:
+      - vs-plugins/dlss45
+      - vs-plugins/xessfg
+      - vs-plugins/bin
+    provides:
+      - vs-plugins/vdlssg.dll
+      - vs-plugins/vxessfg.dll
+      - vs-plugins/vvfg.dll
+      - vs-plugins/vfsr4.dll
+
   # 包布局文件：便携标记（portable.vs）与插件目录占位。
   # 没有版本，也不下载——直接取自本仓库 configs/。
   - id: playkit-layout
@@ -237,9 +266,14 @@ components:
         target: portable_config/scripts/k7f_playkit.lua
       - source: mpv/portable_config/scripts/k7f_vs.lua
         target: portable_config/scripts/k7f_vs.lua
+      # vpy ⇄ mpv 公用参数桥：下行 user-data 拼装 + 上行 .k7f.json 报告
+      - source: mpv/portable_config/scripts/k7f_bridge.lua
+        target: portable_config/scripts/k7f_bridge.lua
+      - source: mpv/portable_config/scripts/k7f_vpypar.lua
+        target: portable_config/scripts/k7f_vpypar.lua
       - source: mpv/portable_config/script-opts/k7f_playkit.conf
         target: portable_config/script-opts/k7f_playkit.conf
-      # 帧生成补帧脚本（DLSS-G / XeSS-FG / VFG / FSR4）；插件与引擎包由拓展包提供
+      # 帧生成补帧脚本（DLSS-G / XeSS-FG / VFG / FSR4）；插件 DLL 在基础组件，引擎在档位包
       - source: mpv/portable_config/vs
         target: portable_config/vs
       - source: LICENSE
