@@ -91,10 +91,12 @@ CI 里用 `PLAYKIT_VERSION`。
 mpv 是我们自己的构建，换版本 = 换 `mpv-src` 的 tag/提交，重新出包：
 
 ```bash
-# 1) 出包（mpv-src 仓库；本地编好后直接跑，或让 CI 的 playkit-windows.yml 跑）
+# 1) 首选：推 tag，让 playkit-windows.yml 在 CI 里编译、出包并发 release
+git tag -a playkit-20261001 -m "playkit build 20261001" && git push fork playkit-20261001
+# 备用：本地编好后自己出包（CI 不可用时）
 pwsh scripts\package_windows.py --out .\mpv-x86_64-playkit-20261001.zip --version 20261001
-# 2) 上传到 release（tag playkit-20261001，资产名必须与上面一致）
 gh release create playkit-20261001 .\mpv-x86_64-playkit-20261001.zip -R o5-null/mpv
+# 2) 两条路产出的资产名一致：mpv-x86_64-playkit-<版本>.zip
 # 3) 钉住（资产已上传就让它自己下；还没上传就加 --file 用本地产物算哈希）
 python -m build.pin --id mpv --version 20261001 \
   --url https://github.com/o5-null/mpv/releases/download/playkit-20261001/mpv-x86_64-playkit-20261001.zip
@@ -216,6 +218,6 @@ lock 一变缓存就失效，避免拿到旧资产。
 | --- | --- | --- |
 | `Error parsing option vf` | 滤镜参数用 `:` 分隔，Windows 路径里的盘符冒号被误解析 | 用相对路径（smoke 就是这么做的）或 `--vf=vapoursynth="路径"` |
 | `sources.lock.json 缺少组件` | 加了规则没钉版本 | `python -m build.pin --id <id> --url <url>` |
-| `stage 含禁止目录: __pycache__` | 有代码在 stage 里跑了 Python 且没禁字节码 | 用 `PYTHONDONTWRITEBYTECODE=1`；smoke 已内置 |
+| `stage 含禁止目录: __pycache__` | 源码树把 `__pycache__` 提交进了 git（K7sfunc fork 曾经如此），或 stage 里跑了 Python 且没禁字节码 | `install_git_tree` 已固定剔除 `__pycache__`/`*.pyc`；还出现就用 `PYTHONDONTWRITEBYTECODE=1`（smoke 已内置） |
 | 下载反复重试后失败 | 代理/网络；GitHub 资产会 302 到 `release-assets.githubusercontent.com` | 确认 `HTTPS_PROXY` 生效（urllib 直接读环境变量） |
 | `找不到 7z 或 bsdtar` | 本机没有 7z | Windows 10+ 自带 `tar.exe` 可解 7z；否则装 7-Zip 或设 `SEVEN_Z` |
