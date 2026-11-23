@@ -52,7 +52,7 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 
 | 包 | 内容 | 体积 | 需要的硬件 |
 | --- | --- | --- | --- |
-| `...-windows-x64-vsdlssg.zip`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG 的 NGX 引擎（含 sm86 解锁）；aji 插帧暂缓 | ~287 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
+| `...-windows-x64-vsdlssg.zip`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / FSR-FG 四套引擎运行时（含 sm86 解锁）；aji 插帧暂缓 | ~498 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
 | `...-windows-x64-vs-mlrt.zip` | 完整播放器 + `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan / dpir 去块模型 + 通用超分 / ArtCNN / RIFE / DRBA 模型 + onnx 等 Python 依赖 | ~1.1 GB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
 
 - 两个包结构一致（`mpv.exe` + `portable_config/` + `Lib/` + `vs-plugins/` + `BUILD_INFO.json`），

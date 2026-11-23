@@ -323,8 +323,8 @@
 
 - **决策**：四个帧生成插件 DLL（约 0.6MB）进**基础包**，落在 `vs-plugins/`，由
   `MEMC_*.vpy` 首次使用时 `LoadPlugin`（不复制进 `vapoursynth/plugins/`，避免双份加载）。
-  档位拆成 `manifests/packs/vsdlssg.yml`（`default: true`，装 `vs-plugins/dlss45` 与
-  `vs-plugins/xessfg`）和 `manifests/packs/vs-mlrt.yml`（原 tensorrt-rtx 整体改名，
+  档位拆成 `manifests/packs/vsdlssg.yml`（`default: true`，装 `vs-plugins/dlss45`、
+  `vs-plugins/xessfg` 以及 vfg / fsr4 两套运行时）和 `manifests/packs/vs-mlrt.yml`（原 tensorrt-rtx 整体改名，
   lock 键改为 `vs-mlrt/*`）。两个清单都带 `full: true`：`assemble_pack` 先把基础包装进
   同一个 stage（`assemble(version, stage=...)`），再叠档位组件，产出与基础包同构的全量 zip
   （`...-windows-x64-<name>.zip`）；补丁形态（无顶层目录的覆盖 zip）代码保留但当前不用。
@@ -333,8 +333,8 @@
   进一步地，用户明确"现在两个包都是全包，暂时没有补丁包"——补丁包要求用户先解基础包再覆盖，
   对普通用户是额外一步，且覆盖式解压出错就毁基础包；全量包各自独立、可并行下载、
   换档只需换目录。
-- **代价 / 边界**：默认档从 ~43MB 涨到 ~287MB（多了自维护 mpv 的 DLL 闭包与基础包本体），
-  vs-mlrt 到 ~1.09GB（stage 1.65GB）；磁盘上两个 stage 各占 ~664MB / ~1.65GB。`PACK_INFO.json` 增加
+- **代价 / 边界**：默认档从 ~43MB 涨到 ~498MB（多了自维护 mpv 的 DLL 闭包、基础包本体与 vfg/fsr4 运行时），
+  vs-mlrt 到 ~1.09GB（stage 1.65GB）；磁盘上两个 stage 各占 ~915MB / ~1.65GB。`PACK_INFO.json` 增加
   `full` 字段，`verify.check_full_pack_archive` 校验全量包（唯一顶层目录 + 基础必需项 +
   `PACK_INFO.full` 为 true），`check_pack_archive` 会自动识别形态。
   `common.default_pack()` 保证最多一个默认档。
