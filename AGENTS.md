@@ -7,13 +7,14 @@
 
 | 路径 | 说明 |
 | --- | --- |
-| `build/` | 打包链本体（本仓库唯一自己写的代码）：`__main__` 入口、fetch/assemble/smoke/package/verify/sync/pin、`pack.py` 打拓展包 |
+| `build/` | 打包链本体（本仓库唯一自己写的代码）：`__main__` 入口、fetch/assemble/smoke/package/verify/sync/pin、`pack.py` 打拓展包、`config.py` 按清单生成配置 |
 | `manifests/components.yml` | 组件**规则**（kind / 装到哪 / exclude / paths / license），不含版本号 |
-| `manifests/packs/*.yml` | 档位包的组件清单（`full: true` 为全量包，否则是 overlay 补丁包）；版本同样进 lock，键是 `<pack>/<id>` |
+| `manifests/packs/*.yml` | 档位包的组件清单（`full: true` 为全量包，否则是补丁包）；版本同样进 lock，键是 `<pack>/<id>` |
+| `manifests/config.yml` | **配置清单**：VF 预设表（按键 / vpy / 名称 / 依赖）+ 每个档位包启用哪几个预设，`build/config.py` 据此生成配置 |
 | `sources.lock.json` | 组件**版本**（version / url / sha256 / size），唯一版本真相 |
 | `configs/` | 本仓库的包布局文件（`portable.vs`、`vs-plugins.keep`、`configs/packs/` 下的许可与第三方说明） |
-| `portable_config/`、`installer/` | **上游** hooke007/mpv_PlayKit 内容，每日整目录覆盖 |
-| `overlay/` | 本仓库自己的配置覆盖；`build.sync` 同步后自动叠加，`assemble` 打包前再叠加 |
+| `portable_config/` | **本地维护**的基准配置（取自 mpv-lazy 最后发版）；只有 `shaders/` 由 `build.sync` 跟随上游整目录替换 |
+| `installer/` | 上游安装脚本，已冻结：不再同步、也不进包（保留只为留档） |
 | `docs/` | `BUILD.md` 构建链、`DECISIONS.md` 决策与已知坑、`TOOLKIT.md` K7sfunc 预设层 |
 | `.work/`、`dist/` | 下载缓存与构建产物，均已 gitignore |
 
@@ -37,9 +38,10 @@ python -m build smoke                  # 冒烟：python import / mpv --version 
 python -m build verify --stage         # 校验 stage 结构/禁止项
 python -m build verify --asset dist/out/<zip>
 python -m build.pin --id <id> --url <url>   # 换版本唯一正确做法：下载→算 sha256→写 lock
+python -m build config --stage <dir> --pack <pack>   # 只对已有 stage 重算配置（改清单后的快检）
 python -m build.pin --list | --check | --dry-run
-python -m build.sync [--check]         # 同步上游两目录；--check 有更新时退出码 3
-python -m build pack [--name <pack>]   # 打拓展包（overlay zip，叠加到基础包根）
+python -m build.sync [--check]         # 同步上游着色器目录；--check 有更新时退出码 3
+python -m build pack [--name <pack>]   # 打拓展包（不带顶层目录的补丁归档，叠加到基础包根）
 python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 pin（lock 键 <pack>/<id>）
 ```
 
@@ -48,10 +50,13 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 
 ## 硬约束
 
-1. **不手改 `portable_config/` 与 `installer/`**。同步是整目录替换，手工加的文件会被删掉；
-   自定义配置写到 `overlay/`（目录结构镜像包根），`build.sync` 同步上游后会自动应用它，
-   并只在 `mpv.conf` 末尾补一行 include。算法/前端功能仍写进 K7sfunc fork
-   （`o5-null/K7sfunc`），本仓库只按 commit 钉它。
+1. **`portable_config/` 是本地维护的基准配置，不是上游镜像**。基准取自 mpv-lazy 最后发版的
+   `portable_config`；只有 `portable_config/shaders/` 仍由 `build.sync` 整目录跟随上游
+   （`installer/` 已冻结，不同步也不进包）。配置差异一律写进 `manifests/config.yml`：
+   `presets` 定义 VF 预设（按键 / vpy / 名称 / 依赖），`packs` 定义每个档位包启用哪几个；
+   `build/config.py` 会把 `input_uosc.conf` 与 `menu.conf` 的标记区重新生成，并裁掉未启用的
+   `vs/*.vpy`。**不要手改两份文件标记区里的内容，也不要手写某个包专用的配置副本。**
+   算法/前端功能仍写进 K7sfunc fork（`o5-null/K7sfunc`），本仓库只按 commit 钉它。
 2. **不手改 `sources.lock.json`**，用 `build.pin`；`components.yml` 里不要出现版本号（规则/版本分离）。
 3. **二进制不入库**：`.work/`、`dist/`、`*.7z`、`*.zip` 都在 gitignore；`portable_config/` 必须入库。
 4. `git-tree` 组件（k7sfunc）按 `paths` 白名单复制——fork 里新增的文件要同步加映射才会进包。
@@ -71,7 +76,8 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 - codeload 走代理时 urllib 会握手中断，`fetch.py` 三次失败后回退 `curl -x $HTTPS_PROXY`。
 - 解 7z 依赖 7-Zip / `SEVEN_Z` / Windows 自带 `tar.exe`，没有就报 `找不到 7z 或 bsdtar`。
 - `.gitignore` 不支持行尾注释；`core.autocrlf` 必须保持 `false`，否则 `build sync` 后出现几百个假修改。
-- 缺模型/插件时 `PLAYKIT_*` 只降级并在 OSD 提示，不算 bug；`mpv.conf` 里上游的空值选项报错属于噪声，见 `build/smoke.py` 的 `NON_FATAL`。
+- 缺模型/插件时 `PLAYKIT_*` 只降级并在 OSD 提示，不算 bug；`mpv.conf` 里空值选项的报错属于噪声，见 `build/smoke.py` 的 `NON_FATAL`。
+- 配置清单里"未启用"的预设不是删掉：`input_uosc.conf` / `menu.conf` 里保留整行并加 `#` 注释，注明缺哪个组件；vpy 才会被真正裁掉。新增预设要同时想清楚 `requires` 写什么。
 - VS 插件只有放 `Lib/site-packages/vapoursynth/plugins/`（含子目录）才会被自动加载；`vs-plugins/` 里放 DLL 不生效。
 - VS R80 起不支持 API 3 插件：`vs-mlrt` 官方二进制全是 API 3，R82 直接拒绝，要用 API4 移植轮子（见 DECISIONS 第 11 条）。
 - 版本号 = `VERSION` + 提交短哈希，CI 可用 `PLAYKIT_VERSION` 覆盖；产物名统一带 `pre`（预览分支不保证兼容）。

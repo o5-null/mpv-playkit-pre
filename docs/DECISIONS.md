@@ -286,6 +286,8 @@
 
 ## 19. 自定义配置放 overlay/，sync 后自动叠加（2026-11-23）
 
+> 已被第 24 条取代：基准配置改为本地维护，`overlay/` 与 `build/overlay.py` 已删除。
+
 - **决策**：`portable_config/` 继续只存上游内容；本仓库自己的配置改动放 `overlay/`，
   按包根结构镜像。当前只有 `overlay/portable_config/playkit-preset.conf`。
   `build.sync` 替换完上游目录后调用 `overlay.apply(ROOT)`：复制 overlay 文件，并在
@@ -368,3 +370,30 @@
   CI 侧 `.github/workflows/build.yml` 校验与上传改 `*.7z` + `*.sha256`。
 - **第 13 条不再适用**：那条讲的是把"模型 zip"再套一层，收益只有 ~5MB；现在压缩的是
   整个包的 DLL/运行时闭包，且 7-Zip 已成为本机与 CI 的既有依赖。
+
+## 24. 基准配置取自 mpv-lazy 最后发版，档位差异改由配置清单生成（2026-11-23）
+
+- **决策**：
+  1. `portable_config/` 不再跟随上游 PlayKit 每日覆盖，改为以 `测试环境\mpv-lazy\portable_config`
+     （mpv-lazy 最后发版）为基准、**本地维护**；上游只保留 `shaders/` 的整目录同步
+     （`build/sync.py: SYNCED_DIRS = ("portable_config/shaders",)`），`installer/` 冻结不再同步。
+  2. 新增 `manifests/config.yml`：`presets` 定义 VF 预设（`key` / `vpy` / `label` / `requires`），
+     `packs` 定义每个档位包启用哪几个。`build/config.py` 用它重写 `input_uosc.conf` 与
+     `menu.conf` 的 `# >>> playkit-config:vf` 标记区，并裁掉 `vs/` 里未启用的 `.vpy`。
+  3. `assemble --pack <name>`（`pack.py` 里全量包自动传本档包名，组件装完再重算一次）；
+     `python -m build config --stage <dir> --pack <name>` 可对已有 stage 单独重算。
+  4. 删除 `overlay/` 与 `build/overlay.py`；`playkit-preset.conf` 的 `idle = yes` 由基准
+     `mpv.conf` 直接提供，第 19、22 条的 overlay 机制作废。
+- **原因**：用户的原话是"构建的 portable_config 引入了太多我不知道的脚本和设置"，
+  要求以自己长期使用的 mpv-lazy 配置为基准；而各档位包（vsdlssg 带四个帧生成引擎、
+  vs-mlrt 带 TRT 推理）本来就需要不同的按键与 vpy 集合。用一份清单生成差异，
+  比维护两三份完整配置副本更容易看懂、也不会漂移。
+- **代价 / 边界**：
+  - 放弃逐日跟随上游配置更新；上游 `mpv.conf` / `menu.conf` / `scripts/` 的改动需要手工挑选，
+    只有 `shaders/` 自动跟。
+  - 基准里点名的 vpy 有 11 个，每个包只留启用的那几个；未启用的在按键文件里保留整行注释并
+    注明缺哪个组件（`requires`），用户能看到"为什么这个键没有"。
+  - `portable_config/` 的配置文本（含 `scripts/`、`vs/`）现在进 `inputs_hash`；
+    `shaders/`（142MB）与 `fonts/`（14MB）按资源处理，不进哈希。
+  - 基准 mpv.conf 引用的字体 `LXGW WenKai Mono Lite`（13.9MB，OFL）随包入库。
+

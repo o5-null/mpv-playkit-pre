@@ -1,6 +1,6 @@
-# 上游同步工作流：把 hooke007/mpv_PlayKit 的配置与安装器整目录替换进来。
-# 上游只同步 portable_config/ 与 installer/ 两个目录，本项目的 build/、manifests/、
-# docs/ 由本地维护，二者互不相交，所以永远不会冲突。自定义功能不在这里，在 K7sfunc fork。
+# 上游同步工作流：只把 hooke007/mpv_PlayKit 的 portable_config/shaders/ 整目录替换进来。
+# 基准配置的其余部分（mpv.conf、input_uosc.conf、menu.conf、scripts/ …）本地维护，
+# 上游更新不再覆盖它们。自定义功能不在这里，在 K7sfunc fork。
 name: sync-upstream
 
 on:
@@ -44,7 +44,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet || git commit -m "chore: 同步上游 hooke007/mpv_PlayKit"
+          git diff --cached --quiet || git commit -m "chore: 同步上游 shaders"
           # 同步期间可能有人往 main 推了提交，直接 push 会被拒。
           # 先把远端提交 rebase 到本地再推，最多重试三次。
           for attempt in 1 2 3; do

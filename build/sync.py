@@ -1,8 +1,8 @@
-"""从上游 hooke007/mpv_PlayKit 同步配置层。
+"""从上游 hooke007/mpv_PlayKit 同步着色器目录。
 
-只替换 `portable_config/` 与 `installer/` 两个目录——本项目自己的东西都放在
-`build/`、`manifests/`、`docs/` 里，自定义功能在 K7sfunc fork 里，
-因此永远不需要解决合并冲突。
+基准配置 `portable_config/` 的其余部分以 mpv-lazy 最后发版的配置为准、本地维护；
+上游仍在持续更新的只有 `portable_config/shaders/`，所以这里只整目录替换它
+（外加 `installer/` 已冻结，不再同步）。
 
     python -m build.sync                    # 同步上游 main 最新提交
     python -m build.sync --commit <sha>     # 指定提交
@@ -18,16 +18,12 @@ import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import common, fetch, overlay
+from . import common, fetch
 
 UPSTREAM_REPO = "hooke007/mpv_PlayKit"
 UPSTREAM_URL = f"https://github.com/{UPSTREAM_REPO}.git"
-SYNCED_DIRS = ("portable_config", "installer")
-
-
-def apply_overlay() -> None:
-    """把 overlay/ 叠回工作树，并补上 playkit-preset 的 include。"""
-    overlay.apply(common.ROOT)
+# 只跟随上游更新的目录（相对仓库根）
+SYNCED_DIRS = ("portable_config/shaders",)
 
 
 def remote_commit(ref: str = "main") -> str:
@@ -80,7 +76,6 @@ def replace_from_tarball(tarball: Path, commit: str) -> None:
                 common.log(f"已替换 {name}/")
             else:
                 common.log(f"上游没有 {name}/，跳过")
-        apply_overlay()
     finally:
         common.remove_tree(tmp)
 
@@ -104,7 +99,6 @@ def run(commit_arg: str | None = None, check: bool = False) -> int:
         return 0 if known == commit else 3
     if known == commit and not commit_arg:
         common.log(f"已是最新上游提交 {commit[:7]}，无需同步")
-        apply_overlay()
         return 3
     tarball = download_tarball(commit)
     replace_from_tarball(tarball, commit)

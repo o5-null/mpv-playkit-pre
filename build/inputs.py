@@ -5,10 +5,10 @@
 得到一个与机器无关的 inputs_hash，写进 BUILD_INFO.json；同样的 inputs_hash
 应该产出同样的包（除 built_at），CI 也能拿它当缓存键。
 
-portable_config/ 不进哈希——它 132MB 且由上游同步而来，其身份由
-upstream.json 里的 commit id 表示，那个文件本身已包含在哈希范围内。
-自维护的 K7sfunc fork 由 lock 里的 commit 钉住，同样不进哈希。
-overlay/ 是本仓库自己的配置覆盖，体量小且会影响最终包内容，必须进哈希。
+portable_config/ 的**配置文本**必须进哈希——它已经改为本地维护的基准（mpv-lazy 最后发版），
+直接影响包内容；只有 shaders/ 与 fonts/ 这类大件例外（142MB / 14MB），它们分别由
+upstream.json 的 commit 和文件本身的来源说明身份。自维护的 K7sfunc fork 由 lock 里的
+commit 钉住，不进哈希。configs/ 是包布局文件（portable.vs 等），同样进哈希。
 """
 
 from __future__ import annotations
@@ -22,11 +22,19 @@ INPUT_PATHS: tuple[str, ...] = (
     "build",
     "manifests",
     "sources.lock.json",
-    "overlay",
+    "configs",
     "upstream.json",
     "VERSION",
     "requirements.txt",
     ".github/workflows/build.yml",
+    # 本地维护的基准配置：文本部分全部进哈希；shaders/ 由 upstream.json 代表，fonts/ 视为资源
+    "portable_config/mpv.conf",
+    "portable_config/input_uosc.conf",
+    "portable_config/menu.conf",
+    "portable_config/profiles.conf",
+    "portable_config/script-opts.conf",
+    "portable_config/scripts",
+    "portable_config/vs",
 )
 
 SKIP_DIRS = {"__pycache__", ".pytest_cache"}

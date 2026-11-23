@@ -107,8 +107,8 @@ def smoke(stage: Path) -> None:
         vpy = stage / "smoke_identity.vpy"
         vpy.write_text(IDENTITY_VPY, encoding="utf-8")
         try:
-            # --idle=no：overlay 的 playkit-preset.conf 现在默认 idle=yes（双击常驻），
-            # 不显式关掉时 mpv 播完 2 帧仍不退出，子进程会挂到超时。
+            # --idle=no：基准 mpv.conf 是 idle=yes（双击常驻），不显式关掉时
+            # mpv 播完 2 帧仍不退出，子进程会挂到超时。
             proc = common.run(
                 [mpv, "--idle=no", "--vo=null", "--ao=null", "--frames=2",
                  "--vf=vapoursynth=smoke_identity.vpy", LAVFI_SOURCE],

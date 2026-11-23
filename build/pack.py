@@ -18,7 +18,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import common, fetch, inputs, package
+from . import common, config, fetch, inputs, package
 from .assemble import INSTALLERS, run_post_steps
 
 # 补丁包绝不能带的顶层文件/目录：出现即说明装配串了包，覆盖时会破坏基础包
@@ -116,7 +116,7 @@ def write_pack_info(stage: Path, name: str, version: str, selected: list[dict],
 
 
 def verify_pack_stage(stage: Path, selected: list[dict] | None = None,
-                      full: bool = False) -> None:
+                      full: bool = False, pack: str | None = None) -> None:
     """stage 侧校验：禁止项、组件声明的 provides、非空。
 
     full=True 时 stage 就是完整播放器包，基础包的必需项由 verify.check_stage 负责，
@@ -126,7 +126,7 @@ def verify_pack_stage(stage: Path, selected: list[dict] | None = None,
         common.fail(f"档位包 stage 不存在: {stage}")
     if full:
         from . import verify  # 避免循环导入
-        verify.check_stage(stage)
+        verify.check_stage(stage, pack)
     else:
         for rel in FORBIDDEN_REL:
             if (stage / rel).exists():
@@ -177,15 +177,18 @@ def assemble_pack(name: str, version: str, with_ids: list[str] | None = None,
     stage.mkdir(parents=True, exist_ok=True)
 
     # 全量包：基础包装进同一个 stage（assemble 自己会清目录，所以传 stage 而不是先建）
+    # 同时把本档包名交给配置清单，否则基础包会按 default 把本档的 vpy 裁掉。
     if full:
-        assemble(version, stage=stage)
+        assemble(version, stage=stage, pack=name)
 
     archives = fetch.fetch_all(selected)
     for comp in selected:
         INSTALLERS[comp["kind"]](stage, comp, archives[comp["id"]])
         run_post_steps(stage, comp)
+    # 本档组件装完后再生成一次：组件也可能带来 vpy（如 k7sfunc 的引擎脚本）
+    config.apply(stage, name)
     write_pack_info(stage, name, version, selected, archives)
-    verify_pack_stage(stage, selected, full=full)
+    verify_pack_stage(stage, selected, full=full, pack=name)
     common.log(f"档位包 stage 完成: {stage} ({_tree_size(stage) / 1e6:.1f} MB)")
     return stage, selected
 

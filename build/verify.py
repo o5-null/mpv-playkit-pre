@@ -10,7 +10,7 @@ import json
 import zipfile
 from pathlib import Path
 
-from . import common, sevenzip
+from . import common, config, sevenzip
 
 ARCHIVE_SUFFIXES = (".7z", ".zip")
 
@@ -22,7 +22,7 @@ FORBIDDEN_ROOT_NAMES = ("Include", "Libs", "tools", "python3t.dll", "python.cat"
                         "build-details.json", "sdk", "vsgenstubs4", "7z.exe", "get-pip.py")
 
 
-def check_stage(stage: Path) -> None:
+def check_stage(stage: Path, pack: str | None = None) -> None:
     if not stage.is_dir():
         common.fail(f"stage 目录不存在: {stage}（先跑 python -m build assemble）")
     missing = [rel for rel in (
@@ -30,7 +30,13 @@ def check_stage(stage: Path) -> None:
         "yt-dlp.exe",
         "python.exe", "python3.dll", "portable.vs",
         "vsscript.dll", "libvapoursynth.dll", "vs-plugins",
-        "portable_config/mpv.conf", "portable_config/input.conf",
+        "portable_config/mpv.conf",
+        # 基准配置（mpv-lazy 最后发版）自带的几份入口文件
+        "portable_config/input_uosc.conf",
+        "portable_config/menu.conf",
+        "portable_config/script-opts.conf",
+        "portable_config/scripts/input_plus.lua",
+        "portable_config/scripts/uosc/main.lua",
         "portable_config/scripts/k7f_playkit.lua",
         "portable_config/scripts/k7f_vs.lua",
         "portable_config/script-opts/k7f_playkit.conf",
@@ -62,6 +68,9 @@ def check_stage(stage: Path) -> None:
     for key in ("inputs_hash", "lock_digest"):
         if not info.get(key):
             common.fail(f"BUILD_INFO.json 缺少 {key}（产物无法追溯）")
+
+    # 配置清单：标记区、启用的 vpy 与实际的 vs/ 内容必须一致
+    config.check(stage, pack)
 
 
 def _check_dir_entries(names: list[str]) -> None:

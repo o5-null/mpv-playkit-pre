@@ -7,7 +7,7 @@
     python -m build verify                校验 stage / 归档
     python -m build all                   assemble -> smoke -> package -> verify
     python -m build ci                    等同 CI：fetch -> assemble -> smoke -> package -> verify
-    python -m build sync                  同步上游 hooke007/mpv_PlayKit 配置目录
+    python -m build sync                  同步上游 hooke007/mpv_PlayKit 的着色器目录
     python -m build pack                  构建拓展补丁包（默认全部，或 --name）
 """
 
@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from . import assemble as assemble_mod
-from . import common, fetch, pack as pack_mod, package, smoke, sync as sync_mod, verify
+from . import common, config as config_mod, fetch, pack as pack_mod, package, smoke, sync as sync_mod, verify
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--version", help="包版本，默认取 VERSION + 提交短哈希")
@@ -44,6 +44,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_asm = sub.add_parser("assemble", help="装配 stage")
     _add_common(p_asm)
+    p_asm.add_argument("--pack", help="按该档位包的配置清单生成 portable_config（默认 default）")
+
+    p_cfg = sub.add_parser("config", help="只对已有 stage 重算配置（不下载、不重装）")
+    p_cfg.add_argument("--stage", required=True, help="已有 stage 目录")
+    p_cfg.add_argument("--pack", help="档位包名（默认 default）")
 
     p_smoke = sub.add_parser("smoke", help="冒烟测试")
     _add_common(p_smoke)
@@ -61,8 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     p_ver.add_argument("--stage", nargs="?", const=None,
                        help="stage 目录，默认按版本推导（可只写 --stage）")
     p_ver.add_argument("--asset")
-    p_ver.add_argument("--pack", action="store_true",
-                       help="按拓展包（overlay 归档）校验 --asset 指向的归档")
+    p_ver.add_argument("--pack", nargs="?", const=True, default=None,
+                       help="--asset 时按拓展包（overlay 归档）校验；--stage 时可指定档位包名")
 
     p_all = sub.add_parser("all", help="完整构建")
     _add_common(p_all)
@@ -72,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_common(p_ci)
     p_ci.add_argument("--out-dir")
 
-    p_sync = sub.add_parser("sync", help="同步上游配置目录（portable_config/installer）")
+    p_sync = sub.add_parser("sync", help="同步上游着色器目录（portable_config/shaders）")
     p_sync.add_argument("--commit", help="指定上游 commit，默认取上游分支最新")
     p_sync.add_argument("--check", action="store_true", help="只检查，有更新时返回 3")
 
@@ -92,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[build] 失败: {exc}", file=sys.stderr, flush=True)
             return 1
 
-    version = common.project_version(args.version)
+    version = common.project_version(getattr(args, "version", None))
 
     try:
         if args.cmd == "fetch":
@@ -101,7 +106,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.cmd == "assemble":
-            assemble_mod.assemble(version, args.with_ids, args.without_ids)
+            assemble_mod.assemble(version, args.with_ids, args.without_ids,
+                                  pack=args.pack)
+            return 0
+
+        if args.cmd == "config":
+            config_mod.apply(Path(args.stage), args.pack)
             return 0
 
         if args.cmd == "smoke":
@@ -121,7 +131,9 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     verify.check_archive(Path(args.asset))
             else:
-                verify.check_stage(Path(args.stage) if args.stage else _stage(args, version))
+                stage = Path(args.stage) if args.stage else _stage(args, version)
+                pack = args.pack if isinstance(args.pack, str) else None
+                verify.check_stage(stage, pack)
             return 0
 
         if args.cmd == "pack":

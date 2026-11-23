@@ -19,13 +19,15 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import common, fetch, inputs, overlay
+from . import common, config, fetch, inputs
 
 # 装配完成后必须存在的路径（相对包根；支持 glob）
 REQUIRED_ROOT = (
     "mpv.exe",
     "yt-dlp.exe",
     "portable_config/mpv.conf",
+    "portable_config/input_uosc.conf",
+    "portable_config/menu.conf",
     "portable_config/scripts",
     "portable_config/scripts/k7f_playkit.lua",
     "portable_config/scripts/k7f_vs.lua",
@@ -234,13 +236,9 @@ def run_post_steps(stage: Path, comp: dict) -> None:
 # ---------------------------------------------------------------- 配置与配套文件
 
 
-def copy_configuration(stage: Path) -> None:
-    """上游 portable_config 整目录 + 本仓库 overlay（如有）。"""
-    src = common.ROOT / "portable_config"
-    if not src.exists():
-        common.fail("仓库缺少 portable_config/，请先同步上游")
-    common.copy_tree(src, stage / "portable_config")
-    overlay.apply(stage)
+def copy_configuration(stage: Path, pack: str | None = None) -> None:
+    """铺基准 portable_config，再按配置清单生成该包的差异（预设区 + vpy 裁剪）。"""
+    config.apply(stage, pack)
 
 
 def copy_licenses(stage: Path, selected: list[dict]) -> None:
@@ -331,7 +329,8 @@ def verify_stage_minimum(stage: Path) -> None:
 
 def assemble(version: str, with_ids: list[str] | None = None,
              without_ids: list[str] | None = None,
-             stage: Path | None = None) -> Path:
+             stage: Path | None = None,
+             pack: str | None = None) -> Path:
     selected = select_components(with_ids, without_ids)
     common.log(f"装配 {common.PROJECT_NAME} {version}，组件: "
                + ", ".join(f"{c['id']}={c.get('version') or 'repo'}" for c in selected))
@@ -348,7 +347,7 @@ def assemble(version: str, with_ids: list[str] | None = None,
     for comp in selected:
         run_post_steps(stage, comp)
 
-    copy_configuration(stage)
+    copy_configuration(stage, pack)
     copy_licenses(stage, selected)
     write_build_info(stage, version, selected, archives)
     verify_stage_minimum(stage)

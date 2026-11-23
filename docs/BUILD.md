@@ -16,8 +16,10 @@ K7sfunc 用自维护 fork 的源码树——全部按 SHA-256 钉住。
 
 ## 不变量（改代码前先读这几条）
 
-1. **不在上游目录里写东西。** `portable_config/`、`installer/` 只由 `build sync` 整目录替换。
-   自定义功能一律进 K7sfunc fork，本仓库不往这两个目录里加文件。
+1. **`portable_config/` 是本地维护的基准配置。** 基准取自 mpv-lazy 最后发版的 `portable_config`，
+   只有 `portable_config/shaders/` 仍由 `build sync` 整目录跟随上游（`installer/` 已冻结）。
+   档位之间的配置差异一律写进 `manifests/config.yml`，由 `build/config.py` 生成，不手写副本。
+   算法/前端功能进 K7sfunc fork，本仓库只按 commit 钉它。
 2. **二进制不入库。** 所有第三方资产在构建时下载，用 `sources.lock.json` 里的 sha256 校验。
 3. **规则与版本分离。** 换版本只改 `sources.lock.json`（由 `build.pin` 写入），
    `manifests/components.yml` 里没有版本号。
@@ -30,20 +32,21 @@ K7sfunc 用自维护 fork 的源码树——全部按 SHA-256 钉住。
 
 ```
 manifests/components.yml   组件规则（kind / 装到哪 / exclude / license）
-manifests/packs/*.yml      拓展包清单（overlay zip 的组件，版本同样是 lock 的 <pack>/<id>）
+manifests/packs/*.yml      拓展包清单（补丁归档的组件，版本同样是 lock 的 <pack>/<id>）
+manifests/config.yml       配置清单：VF 预设表 + 每个档位包启用哪几个预设
 sources.lock.json          组件 pin（version / url / sha256 / size）
 build/common.py            路径、校验、解包、进程、版本号
 build/inputs.py            构建输入哈希（BUILD_INFO.inputs_hash）
 build/fetch.py             下载 + 哈希校验，缓存 .work/downloads/<id>/（codeload 走 curl 回退）
-build/assemble.py          装配 stage（组件 -> portable_config -> overlay -> licenses）
-build/overlay.py           本地配置覆盖：复制 overlay/，给 mpv.conf 补 include
-overlay/                   本仓库自己的配置覆盖（sync/assemble 时自动叠加）
+build/assemble.py          装配 stage（组件 -> 配置清单生成 portable_config -> licenses）
+build/config.py            按 manifests/config.yml 生成预设区、裁掉未启用的 vpy
+portable_config/           本地维护的基准配置（mpv-lazy 最后发版；仅 shaders/ 跟随上游）
 build/smoke.py             python imports / mpv --version / vf=vapoursynth
 build/package.py           出包 + .sha256：默认 7z（最高压缩率），--format zip 出确定性 zip
 build/sevenzip.py          7z 定位、创建、列名、读成员（verify 复用）
-build/pack.py              装配并打包拓展包（overlay zip）
+build/pack.py              装配并打包拓展包（补丁归档）
 build/verify.py            stage 与 zip 的结构、禁止项、BUILD_INFO 校验
-build/sync.py              同步上游两个目录 + 写 upstream.json
+build/sync.py              同步上游着色器目录 + 写 upstream.json
 build/pin.py               下载新资产、算哈希、写 lock（--pack 走补丁包命名空间）
 ```
 
@@ -60,7 +63,7 @@ python -m build all
   │    ├─ select_components()        规则 + lock 合并，处理 --with/--without
   │    ├─ fetch.fetch_all()          缓存命中则只验哈希
   │    ├─ INSTALLERS[kind]            mpv-7z / archive / whl / file / git-tree
-  │    ├─ copy_configuration()       上游 portable_config（overlay/ 存在时再叠加）
+  │    ├─ copy_configuration()       基准 portable_config + 按 pack 生成预设区、裁 vpy
   │    ├─ copy_licenses()            licenses/THIRD_PARTY.md
   │    ├─ write_build_info()         BUILD_INFO.json（含 inputs_hash / lock_digest）
   │    └─ verify_stage_minimum()     必需项检查（支持 glob）
@@ -87,13 +90,53 @@ CI 里用 `PLAYKIT_VERSION`。
   条目顺序取文件系统遍历，因此字节级可复现性不如 zip 严格；验体积与内容仍用 `verify --pack`；
 - `--format zip` 时保留确定性路径：所有条目 `date_time` 固定为 `2020-01-01 00:00:00`（`common.FIXED_TIME`）、
   目录 STORE、文件 deflate 6、`.exe/.com/.bat` 置 0755 其余 0644；
-- `inputs_hash` 对 `build/ manifests/ sources.lock.json overlay/ upstream.json
-  VERSION requirements.txt .github/workflows/build.yml` 逐文件求哈希后排序再哈希，
-  与遍历顺序、机器、时间无关；
+- `inputs_hash` 对 `build/ manifests/ sources.lock.json configs/ upstream.json VERSION
+  requirements.txt .github/workflows/build.yml` 以及 `portable_config/` 下的配置文本
+  （`mpv.conf`、`input_uosc.conf`、`menu.conf`、`profiles.conf`、`script-opts.conf`、
+  `scripts/`、`vs/`）逐文件求哈希后排序再哈希，与遍历顺序、机器、时间无关；
 - 同一份 `inputs_hash` + 同一份 lock + 同一格式，应当产出同一份内容（`built_at` 字段、7z 头部字节除外）。
 
-`portable_config/` 不进 inputs_hash：它 132MB 且由上游同步而来，身份由
-`upstream.json` 的 commit id 表示，而 `upstream.json` 本身在哈希范围内。
+`portable_config/shaders/`（142MB）与 `fonts/`（14MB）不进 inputs_hash：前者身份由
+`upstream.json` 的 commit id 表示（`upstream.json` 本身在哈希范围内），后者是静态资源。
+配置文本必须进哈希——它现在是本地维护、直接决定包内容的东西。
+
+## 配置清单（manifests/config.yml）
+
+基准 `portable_config/` 是"全量预设"版本（mpv-lazy 最后发版的配置），
+`manifests/config.yml` 决定每个档位包在它之上留哪些、禁哪些：
+
+```yaml
+schema: 1
+presets:
+  - id: dlssg            # 清单内唯一
+    key: "*"             # input_uosc.conf 的按键
+    vpy: vs/MEMC_DLSSG_NV.vpy
+    label: 预设 补帧 Dlss (DLC-vsNV)   # input 的 #! 提示与 menu 的条目名
+    requires: vsdlssg 引擎 vdlssg       # 写进"本包未启用"的说明
+packs:
+  default: [mvt_lq]
+  vsdlssg: [mvt_lq, dlssg, xessfg, vfg, fsr4]
+  vs-mlrt: [mvt_lq, rife_nv, drba_nv, uai_nv_trt]
+```
+
+`build/config.py` 对 stage 做三件事：
+
+1. 用 `presets` 的顺序重写 `input_uosc.conf` 与 `menu.conf` 里
+   `# >>> playkit-config:vf` … `# <<< playkit-config:vf` 之间的内容；
+   启用的行是可用键位，未启用的行整行加 `#` 并在行尾/标签后注明缺哪个组件。
+2. 删掉 `vs/` 里未启用的 `.vpy`（真正的裁剪；清单外的 vpy 会报错）。
+3. 保留文件原有行尾（这两份是 CRLF），再自检标记区、启用集合与 `vs/` 是否一致。
+
+改完之后直接对已有 stage 重算，不需要重新下载：
+
+```bash
+python -m build config --stage dist/stage/<...> --pack vsdlssg
+python -m build verify --stage dist/stage/<...> --pack vsdlssg
+```
+
+全量档位包（`pack --name vsdlssg`）里，基础包先按本档包名装配一次，组件装完后再按包名
+重算一次——所以 `k7sfunc` 组件带来的引擎 vpy 不会被基础包的 `default` 配置裁掉。
+基础包（`build assemble` / `all`，不带 `--pack`）按 `default` 生成。
 
 ## 换版本
 
@@ -222,7 +265,8 @@ PACK_INFO.json                             包名、组件清单、lock_digest
 不 push 触发：本地全绿再推，避免每次推送失败都刷一封信。
 
 `.github/workflows/sync-upstream.yml`：每天 UTC 03:00 跑 `python -m build sync`
-（退出码 3 = 上游无更新），有变化就用 bot 身份提交 `chore: 同步上游 hooke007/mpv_PlayKit`。
+（退出码 3 = 上游无更新），有变化就用 bot 身份提交 `chore: 同步上游 shaders`。
+同步范围只有 `portable_config/shaders/`——基准配置的其余部分本地维护，不再跟随上游。
 
 缓存策略：`actions/cache` 存 `.work/downloads`，key 用 `sources.lock.json` 的哈希——
 lock 一变缓存就失效，避免拿到旧资产。
