@@ -25,4 +25,9 @@ tools/
 *.zip.sha256
 
 # 注意：portable_config/ 是上游同步的成品配置，必须纳入版本控制，
-# 此文件里不要出现任何针对 portable_config/ 的忽略规则。
+# 此文件里不要出现任何针对 portable_config/ 的忽略规则——只有下面两项例外：
+# 它们是本地跑过 mpv 之后由播放器自己写下的运行时缓存，不是配置。
+# _cache/*/ 里的 .keep 占位目录要跟着入库，只忽略缓存内容本身。
+portable_config/_cache/*/*
+!portable_config/_cache/*/.keep
+portable_config/saved-props.json

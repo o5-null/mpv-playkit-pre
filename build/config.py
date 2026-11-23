@@ -5,7 +5,10 @@
 
 1. 用 `manifests/config.yml` 的预设表重写 `input_uosc.conf` 与 `menu.conf` 里的
    VF 预设区（标记 `# >>> playkit-config:vf` 与 `# <<< playkit-config:vf` 之间）；
-2. 按该包启用的预设裁剪 `portable_config/vs/*.vpy`：没启用的预设，vpy 不进包。
+2. 用清单的 `native` 段生成 `menu.conf` 的原生滤镜区（标记
+   `# >>> playkit-config:native` 与 `# <<< playkit-config:native` 之间，位置在
+   VF 滤镜与着色器中间），只有列出的档位包才会出现；
+3. 按该包启用的预设裁剪 `portable_config/vs/*.vpy`：没启用的预设，vpy 不进包。
 
 标记区外的一切保持基准原样，所以改动都集中在清单里，构建出来的包也能一眼看出
 "哪些预设可用、哪些为什么不可用"。
@@ -26,6 +29,14 @@ DEFAULT_PACK = "base"
 
 BEGIN = "# >>> playkit-config:vf（由 manifests/config.yml 生成，勿手改）"
 END = "# <<< playkit-config:vf"
+
+# 原生滤镜区（menu.conf 里插在 VF 滤镜与着色器之间）
+NATIVE_BEGIN = "# >>> playkit-config:native（由 manifests/config.yml 生成，勿手改）"
+NATIVE_END = "# <<< playkit-config:native"
+
+# menu.conf 的标记行与禁用项要带状态：select.lua 不认 # 注释，任何一行都会变成
+# 菜单项；hidden=true 让它不画，disabled=true 让它画成灰色且点不动。
+MENU_HIDDEN = "\thidden=true"
 
 INPUT_NAME = "input_uosc.conf"
 MENU_NAME = "menu.conf"
@@ -76,6 +87,27 @@ def load(path: Path = CONFIG_PATH) -> dict:
         unknown = sorted(set(cfg.get("enable") or []) - ids)
         if unknown:
             common.fail(f"配置清单 {name} 包引用了不存在的预设: {', '.join(unknown)}")
+
+    # 原生滤镜（menu.conf 里的独立段）：条目只能在限定包里出现，且必须给出档位
+    native = data.get("native") or {}
+    entries = native.get("entries") or []
+    seen: set[str] = set()
+    for entry in entries:
+        for field in ("id", "label", "vf"):
+            if not entry.get(field):
+                common.fail(f"配置清单的原生滤镜条目缺少 {field}: {entry}")
+        eid = entry["id"]
+        if eid in seen:
+            common.fail(f"配置清单原生滤镜 id 重复: {eid}")
+        seen.add(eid)
+        multis = entry.get("multi") or []
+        if not multis or any(not isinstance(m, int) or m < 2 for m in multis):
+            common.fail(f"原生滤镜 {eid} 的 multi 必须是不小于 2 的整数列表")
+        if not entry.get("packs"):
+            common.fail(f"原生滤镜 {eid} 必须写明 packs（没有档位就永远不会生成）")
+        unknown = sorted(set(entry["packs"]) - set(packs))
+        if unknown:
+            common.fail(f"原生滤镜 {eid} 引用了不存在的包: {', '.join(unknown)}")
     return data
 
 
@@ -86,7 +118,15 @@ def pack_config(name: str | None) -> dict:
     if key not in packs:
         available = ", ".join(sorted(packs))
         common.fail(f"配置清单里没有包 {key}（可用: {available}）")
-    return {"name": key, "presets": data["presets"], "enable": set(packs[key].get("enable") or [])}
+    native = data.get("native") or {}
+    entries = [e for e in native.get("entries") or [] if key in e["packs"]]
+    return {
+        "name": key,
+        "presets": data["presets"],
+        "enable": set(packs[key].get("enable") or []),
+        "native": native,
+        "native_entries": entries,
+    }
 
 
 # ---------------------------------------------------------------- 生成文本
@@ -98,7 +138,10 @@ def _display_width(text: str) -> int:
 
 
 def _vf_command(preset: dict) -> str:
-    return f'vf set vapoursynth="~~/{preset["vpy"]}"'
+    # 先确保解码器交的是 CPU 帧：用过原生滤镜（hwdec=d3d11va）之后，VS 滤镜
+    # 直接吃 D3D11 帧会失败。值没变时 mpv 不会真的重设（m_option_equal 判等），
+    # 所以平时这条前缀没有额外代价。
+    return f'set hwdec auto-copy; vf set vapoursynth="~~/{preset["vpy"]}"'
 
 
 def _reason(preset: dict) -> str:
@@ -121,16 +164,49 @@ def render_input(presets: list[dict], enable: set[str]) -> list[str]:
 
 
 def render_menu(presets: list[dict], enable: set[str]) -> list[str]:
-    """menu.conf 的预设行；未启用的写成一行说明，不再给出绑定命令。"""
+    """menu.conf 的预设行。
+
+    未启用的预设不能写成 # 注释——select.lua 把每一行都当菜单项，注释会变成
+    点不动的空子菜单。改成带 disabled=true 的真条目：看得见、写明缺什么，但灰掉。
+    """
     body = []
     for preset in presets:
-        if preset["id"] not in enable:
-            body.append(f"\t# {preset['label']}（本包未启用：需 {_reason(preset)}）")
-            continue
+        enabled = preset["id"] in enable
+        label = preset["label"]
+        if not enabled:
+            label += f"（本包未启用：需 {_reason(preset)}）"
         # 命令列对齐到第 MENU_CMD_COL 列（label 从第 8 列开始）
-        gap = MENU_CMD_COL - 8 - _display_width(preset["label"])
+        gap = MENU_CMD_COL - 8 - _display_width(label)
         tabs = "\t" * max(1, (gap + 7) // 8)
-        body.append(f"\t{preset['label']}{tabs}{_vf_command(preset)}")
+        line = f"\t{label}{tabs}{_vf_command(preset)}"
+        body.append(line if enabled else line + "\tdisabled=true")
+    return body
+
+
+def _native_command(entry: dict, multi: int) -> str:
+    """原生滤镜的一档命令：先切解码器，再换 vf（顺序不能反）。"""
+    params = [f"multi={multi}"]
+    for key, value in (entry.get("params") or {}).items():
+        params.append(f"{key}={value}")
+    vf = ":".join([entry["vf"], *params])
+    return f"set hwdec d3d11va; vf set {vf}"
+
+
+def render_native(native: dict, entries: list[dict]) -> list[str]:
+    """menu.conf 的原生滤镜区：段标题 + 清空 + 每个条目一个二级菜单。
+
+    条目为空（该包没装引擎）时整段不生成，标记区之间留空。
+    """
+    if not entries:
+        return []
+    body = [native.get("section") or "原生滤镜 (&P)"]
+    if native.get("clear_label"):
+        body.append(f"\t{native['clear_label']}\t"
+                    f"{native.get('clear_command') or 'vf clr playkit'}")
+    for entry in entries:
+        body.append(f"\t{entry['label']}")
+        for multi in entry["multi"]:
+            body.append(f"\t\t{multi}× (&{multi})\t{_native_command(entry, multi)}")
     return body
 
 
@@ -145,19 +221,20 @@ def _write_lines(path: Path, lines: list[str], eol: str) -> None:
     path.write_bytes(eol.join(lines).encode("utf-8"))
 
 
-def splice_block(path: Path, body: list[str]) -> None:
+def splice_block(path: Path, body: list[str], begin_text: str = BEGIN,
+                 end_text: str = END) -> None:
     """把标记区之间的内容换成 body；标记缺失即报错（不做猜测式修补）。"""
     if not path.exists():
         common.fail(f"缺少配置文件: {path}")
     lines, eol = _read_lines(path)
     stripped = [ln.strip() for ln in lines]
     try:
-        begin = stripped.index(BEGIN)
-        end = stripped.index(END)
+        begin = stripped.index(begin_text)
+        end = stripped.index(end_text)
     except ValueError:
-        common.fail(f"{path.name} 缺少 playkit-config 标记区（期望 {BEGIN} / {END}）")
+        common.fail(f"{path.name} 缺少标记区（期望 {begin_text} / {end_text}）")
     if begin > end:
-        common.fail(f"{path.name} 的 playkit-config 标记区顺序颠倒")
+        common.fail(f"{path.name} 的标记区顺序颠倒（{begin_text}）")
     _write_lines(path, lines[:begin + 1] + body + lines[end:], eol)
 
 
@@ -188,14 +265,23 @@ def apply(stage: Path, pack: str | None = None) -> None:
     cfg = pack_config(pack)
     presets, enable = cfg["presets"], cfg["enable"]
 
-    common.copy_tree(BASE_DIR, _config_root(stage))
+    # 本地跑过 mpv 之后基准目录里会多出 saved-props.json（save_global_props.lua
+    # 写下的运行时状态），它不属于配置，不能跟着进包；_cache/ 的 .keep 占位
+    # 目录要保留，缓存内容由 .gitignore 挡在仓库外。
+    common.copy_tree(BASE_DIR, _config_root(stage), ignore=["saved-props.json"])
     splice_block(_config_root(stage) / INPUT_NAME, render_input(presets, enable))
-    splice_block(_config_root(stage) / MENU_NAME, render_menu(presets, enable))
+
+    menu = _config_root(stage) / MENU_NAME
+    # 标记行本身也要藏起来，否则会变成两个打不开的空菜单
+    splice_block(menu, render_menu(presets, enable),
+                 BEGIN + MENU_HIDDEN, END + MENU_HIDDEN)
+    splice_block(menu, render_native(cfg["native"], cfg["native_entries"]),
+                 NATIVE_BEGIN + MENU_HIDDEN, NATIVE_END + MENU_HIDDEN)
 
     keep = {Path(p["vpy"]).name for p in presets if p["id"] in enable}
     removed = prune_vpy(_config_root(stage), keep)
     common.log(f"配置清单: pack={cfg['name']}，启用 {len(keep)} 个预设，"
-               f"移除 {removed} 个未启用的 vpy")
+               f"原生滤镜 {len(cfg['native_entries'])} 项，移除 {removed} 个未启用的 vpy")
     check(stage, pack)
 
 
@@ -203,13 +289,35 @@ def check(stage: Path, pack: str | None = None) -> None:
     """校验 stage 里的配置确实符合清单（标记、vpy 集合、启用项都存在）。"""
     cfg = pack_config(pack)
     cfg_root = _config_root(stage)
-    for name in (INPUT_NAME, MENU_NAME):
+    # input_uosc.conf 是按键表，# 注释安全；menu.conf 由 select.lua 每行都当菜单项
+    for name, begin_text, end_text in (
+        (INPUT_NAME, BEGIN, END),
+        (MENU_NAME, BEGIN + MENU_HIDDEN, END + MENU_HIDDEN),
+        (MENU_NAME, NATIVE_BEGIN + MENU_HIDDEN, NATIVE_END + MENU_HIDDEN),
+    ):
         path = cfg_root / name
         if not path.exists():
             common.fail(f"stage 缺少 portable_config/{name}")
         lines = [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()]
-        if BEGIN not in lines or END not in lines:
-            common.fail(f"portable_config/{name} 缺少 playkit-config 标记区")
+        if begin_text not in lines or end_text not in lines:
+            common.fail(f"portable_config/{name} 缺少标记区: {begin_text}")
+
+    # 原生滤镜段只在装了引擎的包里出现
+    menu_text = (cfg_root / MENU_NAME).read_text(encoding="utf-8")
+    section = cfg["native"].get("section") or "原生滤镜 (&P)"
+    if cfg["native_entries"] and section not in menu_text:
+        common.fail(f"pack={cfg['name']} 缺少原生滤镜段: {section}")
+    if not cfg["native_entries"] and section in menu_text:
+        common.fail(f"pack={cfg['name']} 不该出现原生滤镜段（没有可用的引擎）")
+    for entry in cfg["native_entries"]:
+        rel = entry.get("file")
+        if not rel:
+            continue
+        # 中间 stage 可能还没装组件；装了目录却缺文件才算错
+        if not (stage / Path(rel).parts[0]).exists():
+            continue
+        if not (stage / rel).exists():
+            common.fail(f"pack={cfg['name']} 的原生滤镜 {entry['id']} 缺少 {rel}")
 
     keep = {Path(p["vpy"]).name for p in cfg["presets"] if p["id"] in cfg["enable"]}
     vs_dir = cfg_root / VS_REL
