@@ -173,42 +173,34 @@ def _vf_command(preset: dict) -> str:
     return f'set hwdec auto-copy; vf set vapoursynth="~~/{preset["vpy"]}"'
 
 
-def _reason(preset: dict) -> str:
-    return preset.get("requires") or "额外组件"
-
-
 def render_input(presets: list[dict], enable: set[str]) -> list[str]:
-    """input_uosc.conf 的预设行：启用的原样，未启用的整行注释掉并写明原因。"""
+    """input_uosc.conf 的预设行：只生成本包启用的预设。
+
+    未启用的 vpy 在装配时就被 prune 掉了，留着键位只会按下去没反应（菜单里
+    点不动的灰条目同样只是噪音），所以整行不生成。
+    """
     body = []
     for preset in presets:
+        if preset["id"] not in enable:
+            continue
         command = _vf_command(preset)
         hint = f"VF 滤镜 > {preset['label']}"
-        enabled = preset["id"] in enable
-        if not enabled:
-            hint += f"（本包未启用：需 {_reason(preset)}）"
         pad = " " * max(2, INPUT_CMD_COL - len(command))
-        line = f" {preset['key']:<18}{command}{pad}#! {hint}"
-        body.append(line if enabled else "#" + line)
+        body.append(f" {preset['key']:<18}{command}{pad}#! {hint}")
     return body
 
 
 def render_menu(presets: list[dict], enable: set[str]) -> list[str]:
-    """menu.conf 的预设行。
-
-    未启用的预设不能写成 # 注释——select.lua 把每一行都当菜单项，注释会变成
-    点不动的空子菜单。改成带 disabled=true 的真条目：看得见、写明缺什么，但灰掉。
-    """
+    """menu.conf 的预设行：只生成本包启用的预设（未启用的整行不出现）。"""
     body = []
     for preset in presets:
-        enabled = preset["id"] in enable
+        if preset["id"] not in enable:
+            continue
         label = preset["label"]
-        if not enabled:
-            label += f"（本包未启用：需 {_reason(preset)}）"
         # 命令列对齐到第 MENU_CMD_COL 列（label 从第 8 列开始）
         gap = MENU_CMD_COL - 8 - _display_width(label)
         tabs = "\t" * max(1, (gap + 7) // 8)
-        line = f"\t{label}{tabs}{_vf_command(preset)}"
-        body.append(line if enabled else line + "\tdisabled=true")
+        body.append(f"\t{label}{tabs}{_vf_command(preset)}")
     return body
 
 
