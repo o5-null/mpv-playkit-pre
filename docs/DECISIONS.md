@@ -341,3 +341,14 @@
 - **aji 暂缓**：`vsdlssg` 里的 `vsaji` 组件先 `disable: true`（运行时与 RIFE 模型都不装），
   等 vsaji 定版后再 `build.pin --pack vsdlssg --id vsaji --file <zip>` 并用
   `--with vsaji` 试装；部署布局仍按第 17 条（插件进 plugins/、运行时进 `vs-plugins/aji/`）。
+
+## 22. 默认档/推理档都改 `idle = yes`，双击 `mpv.exe` 不再闪退（2026-11-23）
+
+- **决策**：在 `overlay/portable_config/playkit-preset.conf` 顶部（`profile = playkit` 之前）加全局
+  `idle = yes`。该文件由 `mpv.conf` 第 381 行 `include` 在末尾读入，顺序上覆盖上游第 50 行的 `idle = no`。
+- **原因**：上游 PlayKit 配置是 `idle = no`，且 `mpv.conf` 里没有默认播放入口；无参数双击
+  `mpv.exe` 时 mpv 打开后立即以 exit 0 退出，用户看到的是"双击没反应 / 打不开"。
+  这不是构建问题（带文件启动窗口与播放都正常），但默认包应当零配置可用。
+- **代价 / 边界**：常驻意味着无参数启动后进程与窗口一直存在，需要用户关窗或 `q` 退出（与
+  PotPlayer/VLC 的一致行为）；不影响带文件启动、命令行批处理与 `--no-config` 场景。
+  只改我们自己的 overlay 文件，不动上游 `portable_config/mpv.conf`。
