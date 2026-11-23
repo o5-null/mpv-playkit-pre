@@ -56,6 +56,8 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
    `presets` 定义 VF 预设（按键 / vpy / 名称 / 依赖），`packs` 定义每个档位包启用哪几个；
    `build/config.py` 会把 `input_uosc.conf` 与 `menu.conf` 的标记区重新生成，并裁掉未启用的
    `vs/*.vpy`。**不要手改两份文件标记区里的内容，也不要手写某个包专用的配置副本。**
+   `packs.base` 是中间基础 stage 的配置（`assemble` / `smoke` / `verify` 不带 `--pack` 时用它），
+   只放 mpv + k7sfunc 基础依赖就能跑的预设，不是交付物；用户拿到的是 `vsdlssg` / `vs-mlrt` 两个包。
    算法/前端功能仍写进 K7sfunc fork（`o5-null/K7sfunc`），本仓库只按 commit 钉它。
 2. **不手改 `sources.lock.json`**，用 `build.pin`；`components.yml` 里不要出现版本号（规则/版本分离）。
 3. **二进制不入库**：`.work/`、`dist/`、`*.7z`、`*.zip` 都在 gitignore；`portable_config/` 必须入库。

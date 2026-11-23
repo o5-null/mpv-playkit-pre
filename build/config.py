@@ -22,7 +22,7 @@ from . import common
 
 CONFIG_PATH = common.ROOT / "manifests" / "config.yml"
 BASE_DIR = common.ROOT / "portable_config"
-DEFAULT_PACK = "default"
+DEFAULT_PACK = "base"
 
 BEGIN = "# >>> playkit-config:vf（由 manifests/config.yml 生成，勿手改）"
 END = "# <<< playkit-config:vf"
@@ -71,7 +71,7 @@ def load(path: Path = CONFIG_PATH) -> dict:
 
     packs = data.get("packs") or {}
     if DEFAULT_PACK not in packs:
-        common.fail(f"配置清单缺少 {DEFAULT_PACK} 包（不带档位的基础包）")
+        common.fail(f"配置清单缺少 {DEFAULT_PACK} 包（不带档位的基础 stage）")
     for name, cfg in packs.items():
         unknown = sorted(set(cfg.get("enable") or []) - ids)
         if unknown:

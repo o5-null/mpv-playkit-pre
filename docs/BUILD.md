@@ -114,9 +114,12 @@ presets:
     label: 预设 补帧 Dlss (DLC-vsNV)   # input 的 #! 提示与 menu 的条目名
     requires: vsdlssg 引擎 vdlssg       # 写进"本包未启用"的说明
 packs:
-  default: [mvt_lq]
-  vsdlssg: [mvt_lq, dlssg, xessfg, vfg, fsr4]
-  vs-mlrt: [mvt_lq, rife_nv, drba_nv, uai_nv_trt]
+  base:                      # 中间基础 stage 的配置（不带 --pack 时用）
+    enable: [mvt_lq]
+  vsdlssg:
+    enable: [mvt_lq, dlssg, xessfg, vfg, fsr4]
+  vs-mlrt:
+    enable: [mvt_lq, rife_nv, drba_nv, uai_nv_trt]
 ```
 
 `build/config.py` 对 stage 做三件事：
@@ -135,8 +138,9 @@ python -m build verify --stage dist/stage/<...> --pack vsdlssg
 ```
 
 全量档位包（`pack --name vsdlssg`）里，基础包先按本档包名装配一次，组件装完后再按包名
-重算一次——所以 `k7sfunc` 组件带来的引擎 vpy 不会被基础包的 `default` 配置裁掉。
-基础包（`build assemble` / `all`，不带 `--pack`）按 `default` 生成。
+重算一次——所以 `k7sfunc` 组件带来的引擎 vpy 不会被基础 stage 的 `base` 配置裁掉。
+基础 stage（`build assemble` / `all`，不带 `--pack`）按 `base` 生成，只含 mpv + k7sfunc
+基础依赖就能跑的预设（当前只有 `mvt_lq`）；`base` 不是交付物，用户拿到的是两个档位包。
 
 ## 换版本
 

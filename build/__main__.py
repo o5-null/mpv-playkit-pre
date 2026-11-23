@@ -44,11 +44,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_asm = sub.add_parser("assemble", help="装配 stage")
     _add_common(p_asm)
-    p_asm.add_argument("--pack", help="按该档位包的配置清单生成 portable_config（默认 default）")
+    p_asm.add_argument("--pack", help="按该档位包的配置清单生成 portable_config（默认 base）")
 
     p_cfg = sub.add_parser("config", help="只对已有 stage 重算配置（不下载、不重装）")
     p_cfg.add_argument("--stage", required=True, help="已有 stage 目录")
-    p_cfg.add_argument("--pack", help="档位包名（默认 default）")
+    p_cfg.add_argument("--pack", help="档位包名（默认 base）")
 
     p_smoke = sub.add_parser("smoke", help="冒烟测试")
     _add_common(p_smoke)

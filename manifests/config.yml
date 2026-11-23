@@ -82,10 +82,12 @@ presets:
     label: 预设 补帧 FSR4
     requires: vsdlssg 引擎 vfsr4
 
-# 每个包启用的预设（id）。default = 不带档位的基础包（python -m build all）。
+# 每个包启用的预设（id）。
+# base = 中间基础 stage 的配置（assemble / smoke / verify 用它；全量档位包打包时会被包名覆盖），
+#        只放基础依赖（mpv + k7sfunc + 随包 VS 插件）就能直接跑的预设——当前只有 mvtools。
 # 没列出的预设会生成成注释行，并在行尾写明它需要什么。
 packs:
-  default:
+  base:
     enable:
       - mvt_lq
 

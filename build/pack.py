@@ -177,7 +177,7 @@ def assemble_pack(name: str, version: str, with_ids: list[str] | None = None,
     stage.mkdir(parents=True, exist_ok=True)
 
     # 全量包：基础包装进同一个 stage（assemble 自己会清目录，所以传 stage 而不是先建）
-    # 同时把本档包名交给配置清单，否则基础包会按 default 把本档的 vpy 裁掉。
+    # 同时把本档包名交给配置清单，否则基础包会按 base 把本档的 vpy 裁掉。
     if full:
         assemble(version, stage=stage, pack=name)
 
