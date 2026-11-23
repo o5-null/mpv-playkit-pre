@@ -346,6 +346,9 @@
 
 ## 22. 默认档/推理档都改 `idle = yes`，双击 `mpv.exe` 不再闪退（2026-11-23）
 
+> 机制已被第 24 条取代：`idle = yes` 现在直接来自基准 `portable_config/mpv.conf`，
+> `overlay/` 与 include 行都不再存在；行为不变。
+
 - **决策**：在 `overlay/portable_config/playkit-preset.conf` 顶部（`profile = playkit` 之前）加全局
   `idle = yes`。该文件由 `mpv.conf` 第 381 行 `include` 在末尾读入，顺序上覆盖上游第 50 行的 `idle = no`。
 - **原因**：上游 PlayKit 配置是 `idle = no`，且 `mpv.conf` 里没有默认播放入口；无参数双击
