@@ -448,5 +448,21 @@
 - **代价 / 边界**：进程被强杀（`taskkill /F`、系统重启）时 `finally` 不执行，仍会残留；那种
   情况靠手动清 `.work`（保留 `*-local.*` 覆盖件与测试脚本）。
 
+## 28. VF 预设菜单项挂在 `VF 滤镜` 之下，标记行随之缩进（2026-11-24）
+
+- **决策**：`portable_config/menu.conf` 里 `vf` 那一对标记行改成缩进一层
+  （`\t# >>> playkit-config:vf（由 manifests/config.yml 生成，勿手改）\thidden=true`），
+  预设行保持一层缩进。`build/config.py` 新增 `MENU_VF_INDENT = "\t"`，`check()` 断言标记行
+  确实缩进，否则构建直接失败。
+- **原因**：`select.lua:1393-1412` 用行首缩进建树。标记行在根层时，缩进一层的
+  `预设 补帧 …` 就成为"隐藏标记的子菜单"；Windows 原生菜单 `build_menu()` 先递归建子菜单
+  再判 `if (fState == -1) // hidden continue;`（`mpv-src/video/out/win32/menu.c:150-161`），
+  父项被跳过时整棵子树跟着消失——用户看到的右键菜单变成 `VF 滤镜 > 只有 清空 (&C)`。
+  `倍数 (&M)` / `原生滤镜 (&P)` 是根层段标题，所以只有 VF 预设这一块出问题。
+- **代价 / 边界**：`splice_block()` 按 `strip()` 后比较标记行，缩进不影响拼接；但模板
+  `portable_config/menu.conf` 与任何手写的 stage 配置都必须带那个 `\t`，否则 `check()`
+  拦下。`menu-data` 里会多出一条 `# <<< playkit-config:vf`（hidden），无害。
+
+
 
 

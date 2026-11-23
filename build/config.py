@@ -30,6 +30,13 @@ DEFAULT_PACK = "base"
 BEGIN = "# >>> playkit-config:vf（由 manifests/config.yml 生成，勿手改）"
 END = "# <<< playkit-config:vf"
 
+# VF 预设区的标记行在模板里是缩进一层的（见 portable_config/menu.conf）：select.lua
+# 按缩进建树，标记行在根层则预设行成了"隐藏标记的子菜单"，而 Windows 原生菜单
+# 遇到 hidden 项会整棵子树丢掉（mpv-src/video/out/win32/menu.c:160 之前就已递归
+# 建好了子菜单，随后 continue 跳过父项，子项随之消失）。缩进到 VF 滤镜之下后，
+# 预设行与标记行同层，落进 VF 滤镜的子菜单，正常显示。
+MENU_VF_INDENT = "\t"
+
 # 原生滤镜区（menu.conf 里插在 VF 滤镜与着色器之间）
 NATIVE_BEGIN = "# >>> playkit-config:native（由 manifests/config.yml 生成，勿手改）"
 NATIVE_END = "# <<< playkit-config:native"
@@ -348,6 +355,14 @@ def check(stage: Path, pack: str | None = None) -> None:
 
     # 原生滤镜段只在装了引擎的包里出现
     menu_text = (cfg_root / MENU_NAME).read_text(encoding="utf-8")
+
+    # VF 预设区的标记必须缩进一层：标记在根层时，预设行会挂到隐藏标记底下，
+    # Windows 原生菜单把隐藏项的整棵子树丢掉，用户只看到 VF 滤镜 > 清空。
+    if render_menu(cfg["presets"], cfg["enable"]):
+        indented = MENU_VF_INDENT + BEGIN + MENU_HIDDEN
+        if indented not in menu_text.splitlines():
+            common.fail(f"portable_config/{MENU_NAME} 的 VF 标记行没有缩进一层"
+                        f"（应为 {indented!r}），预设会挂到隐藏项下而显示不出来")
     section = cfg["native"].get("section") or "原生滤镜 (&P)"
     if cfg["native_entries"] and section not in menu_text:
         common.fail(f"pack={cfg['name']} 缺少原生滤镜段: {section}")
