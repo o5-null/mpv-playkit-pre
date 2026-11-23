@@ -4,10 +4,10 @@
   "components": {
     "k7sfunc": {
       "version": "1.9.0+pre.7",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/9f5693a5c6e2f5b857575b85befe3a3b4916fb67",
-      "sha256": "3f2277abb31d99abe227a731f38d4392d8c374912d51cd47b9c167f532fe5e40",
-      "size": 496426,
-      "pinned_at": "2026-11-21T14:51:22Z"
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/11fea6bc59d8bb0ee77628f62a0c5e8715c83dce",
+      "sha256": "3c0179e53001e0302303166c7061b72e4d9d6548ec70d5e64e28143b8854b05c",
+      "size": 508378,
+      "pinned_at": "2026-11-23T09:21:00Z"
     },
     "mpv": {
       "version": "20261111-git-bcde6b93cc",
