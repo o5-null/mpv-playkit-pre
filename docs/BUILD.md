@@ -104,6 +104,10 @@ python -m build.pin --id mpv --version 20261001 \
 python -m build all
 ```
 
+mpv 的 zip 只带 mpv.exe / mpv.com / 动态依赖闭包，**不含 VapourSynth 运行库**：`vf vapoursynth`
+在运行时才去加载 `vsscript.dll`，这些文件由包里 `vapoursynth` 组件（whl）复制到包根，所以单独解压
+mpv zip 只能看 `--vf=help` 里的条目，真要跑 `.vpy` 得放进 playkit 包里用。
+
 本地试自己的构建时可以完全不碰 lock：`PLAYKIT_MPV_ARCHIVE=E:\...\mpv-x86_64-playkit-xxx.zip`
 （或通用名 `PLAYKIT_LOCAL_<组件ID>`）会让 `fetch` 跳过下载与哈希；`BUILD_INFO.json` 里会记
 真实 sha256 并标记 `overridden`，锁里的值留在 `sha256_locked`。

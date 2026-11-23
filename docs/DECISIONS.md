@@ -333,8 +333,8 @@
   进一步地，用户明确"现在两个包都是全包，暂时没有补丁包"——补丁包要求用户先解基础包再覆盖，
   对普通用户是额外一步，且覆盖式解压出错就毁基础包；全量包各自独立、可并行下载、
   换档只需换目录。
-- **代价 / 边界**：默认档从 ~43MB 涨到 ~283MB（多了自维护 mpv 的 DLL 闭包与基础包本体），
-  vs-mlrt 到 ~1.1GB（stage 1.6GB）；磁盘上两个 stage 各占 ~655MB / ~1.6GB。`PACK_INFO.json` 增加
+- **代价 / 边界**：默认档从 ~43MB 涨到 ~287MB（多了自维护 mpv 的 DLL 闭包与基础包本体），
+  vs-mlrt 到 ~1.09GB（stage 1.65GB）；磁盘上两个 stage 各占 ~664MB / ~1.65GB。`PACK_INFO.json` 增加
   `full` 字段，`verify.check_full_pack_archive` 校验全量包（唯一顶层目录 + 基础必需项 +
   `PACK_INFO.full` 为 true），`check_pack_archive` 会自动识别形态。
   `common.default_pack()` 保证最多一个默认档。
