@@ -37,6 +37,15 @@ jobs:
       - name: 安装构建期依赖
         run: pip install -r requirements.txt
 
+      # 出包用官方 7-Zip（runner 自带），显式加入 PATH 免得换镜像后找不到
+      - name: 确认 7-Zip
+        shell: pwsh
+        run: |
+          $seven = "C:\Program Files\7-Zip\7z.exe"
+          if (-not (Test-Path $seven)) { throw "runner 上没有 7-Zip" }
+          & $seven | Select-Object -First 3
+          "C:\Program Files\7-Zip" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
       # 下载目录按 sources.lock.json 的哈希做 key：锁定文件不变就无需重新下载数百 MB 组件
       - name: 恢复下载缓存
         uses: actions/cache@v5
@@ -56,14 +65,14 @@ jobs:
       - name: 校验 stage 目录
         run: python -m build verify --stage
 
-      # 两个档位都是全量包（full: true），各自带完整播放器，产物在 dist/out/*-windows-x64-<档位>.zip
+      # 两个档位都是全量包（full: true），各自带完整播放器，产物在 dist/out/*-windows-x64-<档位>.7z
       - name: 打全量包
         run: python -m build pack
 
       - name: 校验全量包
         shell: bash
         run: |
-          for f in dist/out/*-windows-x64-vsdlssg.zip dist/out/*-windows-x64-vs-mlrt.zip; do
+          for f in dist/out/*-windows-x64-vsdlssg.7z dist/out/*-windows-x64-vs-mlrt.7z; do
             python -m build verify --pack --asset "$f"
           done
 
@@ -72,7 +81,8 @@ jobs:
         with:
           name: mpv-playkit-pre-windows-x64
           path: |
-            dist/out/*-windows-x64-vsdlssg.zip
-            dist/out/*-windows-x64-vs-mlrt.zip
+            dist/out/*-windows-x64-vsdlssg.7z
+            dist/out/*-windows-x64-vs-mlrt.7z
+            dist/out/*.sha256
           if-no-files-found: error
           retention-days: 14

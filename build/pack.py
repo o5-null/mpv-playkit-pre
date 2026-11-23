@@ -192,13 +192,14 @@ def assemble_pack(name: str, version: str, with_ids: list[str] | None = None,
 
 def build_pack(name: str, version: str, out_dir: Path | None = None,
                with_ids: list[str] | None = None,
-               without_ids: list[str] | None = None) -> Path:
-    """装配 + 打包 + 校验 zip，返回产物路径。"""
+               without_ids: list[str] | None = None,
+               fmt: str = package.DEFAULT_FORMAT) -> Path:
+    """装配 + 打包 + 校验归档，返回产物路径。"""
     from . import verify  # 避免循环导入
 
     full = is_full(name)
     stage, _ = assemble_pack(name, version, with_ids, without_ids)
-    archive = package.zip_stage(stage, out_dir=out_dir, flat=not full)
+    archive = package.package_stage(stage, out_dir=out_dir, flat=not full, fmt=fmt)
     if full:
         verify.check_full_pack_archive(archive)
     else:

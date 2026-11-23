@@ -1,4 +1,4 @@
-"""对 stage 与 zip 产物做结构与内容校验。
+"""对 stage 与归档产物（7z / zip）做结构与内容校验。
 
 分层思路：assemble 只保证"该有的在"，verify 再检查"不该有的没有"，
 以及 BUILD_INFO / 组件哈希是否与清单一致。
@@ -10,7 +10,9 @@ import json
 import zipfile
 from pathlib import Path
 
-from . import common
+from . import common, sevenzip
+
+ARCHIVE_SUFFIXES = (".7z", ".zip")
 
 FORBIDDEN_PARTS = ("__pycache__", ".git", ".work")
 FORBIDDEN_SUFFIXES = (".pyc", ".pyo", ".part")
@@ -78,13 +80,29 @@ def _check_dir_entries(names: list[str]) -> None:
         common.fail("压缩包目录条目缺少结尾斜杠: " + ", ".join(missing_dirs[:5]))
 
 
+def list_names(archive: Path) -> list[str]:
+    """归档内的条目名；7z 与 zip 统一（目录以 "/" 结尾）。"""
+    if archive.suffix.lower() == ".7z":
+        return sevenzip.list_names(archive)
+    with zipfile.ZipFile(archive) as zf:
+        return zf.namelist()
+
+
+def read_member(archive: Path, name: str) -> bytes:
+    if archive.suffix.lower() == ".7z":
+        return sevenzip.read_member(archive, name)
+    with zipfile.ZipFile(archive) as zf:
+        return zf.read(name)
+
+
 def resolve_asset(target: Path) -> Path:
-    """--asset 既接受 zip 路径，也接受只含一个 zip 的目录。"""
+    """--asset 既接受归档路径，也接受只含一个归档的目录。"""
     if target.is_dir():
-        zips = sorted(target.glob("*.zip"))
-        if len(zips) != 1:
-            common.fail(f"{target} 下应恰好有一个 zip，实际 {len(zips)} 个")
-        return zips[0]
+        found = sorted(p for p in target.iterdir()
+                       if p.suffix.lower() in ARCHIVE_SUFFIXES)
+        if len(found) != 1:
+            common.fail(f"{target} 下应恰好有一个 7z/zip，实际 {len(found)} 个")
+        return found[0]
     if not target.exists():
         common.fail(f"归档不存在: {target}")
     return target
@@ -92,55 +110,53 @@ def resolve_asset(target: Path) -> Path:
 
 def check_archive(archive: Path) -> None:
     archive = resolve_asset(archive)
-    with zipfile.ZipFile(archive) as zf:
-        names = zf.namelist()
-        roots = {n.split("/")[0] for n in names}
-        if len(roots) != 1:
-            common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
-        root = roots.pop()
-        required = ("mpv.exe", "yt-dlp.exe", "python.exe", "vsscript.dll", "portable_config/mpv.conf",
-                    "BUILD_INFO.json",
-                    "Lib/site-packages/vapoursynth/__init__.py",
-                    "Lib/site-packages/k7sfunc/__init__.py",
-                    "Lib/site-packages/k7sfunc/mod_playkit.py",
-                    "portable_config/scripts/k7f_playkit.lua",
-                    "portable_config/scripts/k7f_vs.lua")
-        for rel in required:
-            if f"{root}/{rel}" not in names:
-                common.fail(f"压缩包缺少: {root}/{rel}")
-        for name in names:
-            if any(part in name.split("/") for part in FORBIDDEN_PARTS):
-                common.fail(f"压缩包含禁止目录: {name}")
+    names = list_names(archive)
+    roots = {n.split("/")[0] for n in names}
+    if len(roots) != 1:
+        common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
+    root = roots.pop()
+    required = ("mpv.exe", "yt-dlp.exe", "python.exe", "vsscript.dll", "portable_config/mpv.conf",
+                "BUILD_INFO.json",
+                "Lib/site-packages/vapoursynth/__init__.py",
+                "Lib/site-packages/k7sfunc/__init__.py",
+                "Lib/site-packages/k7sfunc/mod_playkit.py",
+                "portable_config/scripts/k7f_playkit.lua",
+                "portable_config/scripts/k7f_vs.lua")
+    for rel in required:
+        if f"{root}/{rel}" not in names:
+            common.fail(f"压缩包缺少: {root}/{rel}")
+    for name in names:
+        if any(part in name.split("/") for part in FORBIDDEN_PARTS):
+            common.fail(f"压缩包含禁止目录: {name}")
 
-        # 目录条目必须以 "/" 结尾：否则标准解压工具会把它当 0 字节文件建出来，
-        # 之后同名前缀下的文件必然报 "No such file or directory"。
-        _check_dir_entries(names)
+    # 目录条目必须以 "/" 结尾：否则标准解压工具会把它当 0 字节文件建出来，
+    # 之后同名前缀下的文件必然报 "No such file or directory"。
+    _check_dir_entries(names)
     common.log(f"归档校验通过: {archive.name}")
 
 
 def check_full_pack_archive(archive: Path) -> None:
     """全量档包产物校验：与基础包同构（唯一顶层目录）+ 本档自己的 PACK_INFO.json。"""
     archive = resolve_asset(archive)
-    with zipfile.ZipFile(archive) as zf:
-        names = zf.namelist()
-        roots = {n.split("/")[0] for n in names}
-        if len(roots) != 1:
-            common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
-        root = roots.pop()
-        required = ("PACK_INFO.json", "mpv.exe", "python.exe", "vsscript.dll",
-                    "portable_config/mpv.conf", "BUILD_INFO.json",
-                    "Lib/site-packages/vapoursynth/__init__.py",
-                    "Lib/site-packages/k7sfunc/__init__.py")
-        for rel in required:
-            if f"{root}/{rel}" not in names:
-                common.fail(f"全量档包缺少: {root}/{rel}")
-        for name in names:
-            if any(part in name.split("/") for part in FORBIDDEN_PARTS):
-                common.fail(f"压缩包含禁止目录: {name}")
-        _check_dir_entries(names)
-        info = json.loads(zf.read(f"{root}/PACK_INFO.json").decode("utf-8"))
-        if not info.get("full"):
-            common.fail("PACK_INFO.json 没有标记 full: true（全量档包）")
+    names = list_names(archive)
+    roots = {n.split("/")[0] for n in names}
+    if len(roots) != 1:
+        common.fail(f"压缩包根目录不唯一: {sorted(roots)}")
+    root = roots.pop()
+    required = ("PACK_INFO.json", "mpv.exe", "python.exe", "vsscript.dll",
+                "portable_config/mpv.conf", "BUILD_INFO.json",
+                "Lib/site-packages/vapoursynth/__init__.py",
+                "Lib/site-packages/k7sfunc/__init__.py")
+    for rel in required:
+        if f"{root}/{rel}" not in names:
+            common.fail(f"全量档包缺少: {root}/{rel}")
+    for name in names:
+        if any(part in name.split("/") for part in FORBIDDEN_PARTS):
+            common.fail(f"压缩包含禁止目录: {name}")
+    _check_dir_entries(names)
+    info = json.loads(read_member(archive, f"{root}/PACK_INFO.json").decode("utf-8"))
+    if not info.get("full"):
+        common.fail("PACK_INFO.json 没有标记 full: true（全量档包）")
     common.log(f"全量档包校验通过: {archive.name}")
 
 
@@ -151,34 +167,31 @@ def check_pack_archive(archive: Path) -> None:
     check_full_pack_archive，这样 `build verify --pack --asset` 对两种形态都通用。
     """
     archive = resolve_asset(archive)
-    with zipfile.ZipFile(archive) as zf:
-        names = zf.namelist()
+    names = list_names(archive)
     tops = {n.split("/")[0] for n in names}
     if len(tops) == 1 and tops.pop() not in ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json"):
         return check_full_pack_archive(archive)
-    with zipfile.ZipFile(archive) as zf:
-        names = zf.namelist()
-        if not names:
-            common.fail(f"补丁包是空的: {archive.name}")
-        plugin_root = "Lib/site-packages/vapoursynth/plugins/"
-        site_root = "Lib/site-packages/"
-        for name in names:
-            top = name.split("/")[0]
-            if top not in ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json"):
-                common.fail(f"补丁包出现未预期的顶层条目: {name}")
-            if name.startswith("Lib/"):
-                rel = name.rstrip("/")
-                if not (rel.startswith(plugin_root.rstrip("/") + "/")
-                        or plugin_root.rstrip("/").startswith(rel)
-                        or (rel.startswith(site_root) and not rel.startswith(site_root + "vapoursynth"))):
-                    common.fail(f"补丁包的 Lib/ 下只允许插件目录与 Python 包: {name}")
-            if any(part in name.split("/") for part in FORBIDDEN_PARTS):
-                common.fail(f"补丁包含禁止目录: {name}")
-        # 具体组件校验交给 manifests/packs/*.yml 的 provides，
-        # 这里只确认"确实装了东西"和"没有串包"。
-        files = [n for n in names if not n.endswith("/")]
-        if not any(n.startswith("vs-plugins/") or n.startswith(plugin_root)
-                   or n.startswith("portable_config/") for n in files):
-            common.fail("补丁包没有往 vs-plugins/、插件目录或 portable_config/ 放任何文件")
-        _check_dir_entries(names)
+    if not names:
+        common.fail(f"补丁包是空的: {archive.name}")
+    plugin_root = "Lib/site-packages/vapoursynth/plugins/"
+    site_root = "Lib/site-packages/"
+    for name in names:
+        top = name.split("/")[0]
+        if top not in ("vs-plugins", "Lib", "portable_config", "PACK_INFO.json"):
+            common.fail(f"补丁包出现未预期的顶层条目: {name}")
+        if name.startswith("Lib/"):
+            rel = name.rstrip("/")
+            if not (rel.startswith(plugin_root.rstrip("/") + "/")
+                    or plugin_root.rstrip("/").startswith(rel)
+                    or (rel.startswith(site_root) and not rel.startswith(site_root + "vapoursynth"))):
+                common.fail(f"补丁包的 Lib/ 下只允许插件目录与 Python 包: {name}")
+        if any(part in name.split("/") for part in FORBIDDEN_PARTS):
+            common.fail(f"补丁包含禁止目录: {name}")
+    # 具体组件校验交给 manifests/packs/*.yml 的 provides，
+    # 这里只确认"确实装了东西"和"没有串包"。
+    files = [n for n in names if not n.endswith("/")]
+    if not any(n.startswith("vs-plugins/") or n.startswith(plugin_root)
+               or n.startswith("portable_config/") for n in files):
+        common.fail("补丁包没有往 vs-plugins/、插件目录或 portable_config/ 放任何文件")
+    _check_dir_entries(names)
     common.log(f"补丁包校验通过: {archive.name}")

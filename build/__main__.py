@@ -27,6 +27,8 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--without", dest="without_ids", action="append", default=[],
                         metavar="ID", help="跳过某组件（可重复）")
     parser.add_argument("--force", action="store_true", help="忽略下载缓存")
+    parser.add_argument("--format", choices=package.FORMATS, default=package.DEFAULT_FORMAT,
+                        help="归档格式，默认 7z（最高压缩率）；zip 仅兼容旧流程")
 
 
 def _stage(args, version: str) -> Path:
@@ -48,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     p_smoke.add_argument("--stage", nargs="?", const=None,
                          help="stage 目录，默认按版本推导（可只写 --stage）")
 
-    p_pkg = sub.add_parser("package", help="打包 zip")
+    p_pkg = sub.add_parser("package", help="打包归档（默认 7z）")
     _add_common(p_pkg)
     p_pkg.add_argument("--stage", nargs="?", const=None,
                        help="stage 目录，默认按版本推导（可只写 --stage）")
@@ -60,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
                        help="stage 目录，默认按版本推导（可只写 --stage）")
     p_ver.add_argument("--asset")
     p_ver.add_argument("--pack", action="store_true",
-                       help="按拓展包（overlay zip）校验 --asset 指向的归档")
+                       help="按拓展包（overlay 归档）校验 --asset 指向的归档")
 
     p_all = sub.add_parser("all", help="完整构建")
     _add_common(p_all)
@@ -74,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sync.add_argument("--commit", help="指定上游 commit，默认取上游分支最新")
     p_sync.add_argument("--check", action="store_true", help="只检查，有更新时返回 3")
 
-    p_pack = sub.add_parser("pack", help="构建拓展补丁包（overlay zip）")
+    p_pack = sub.add_parser("pack", help="构建拓展补丁包（overlay 归档）")
     _add_common(p_pack)
     p_pack.add_argument("--name", action="append", default=[], metavar="NAME",
                         help="补丁包名（可重复），默认 manifests/packs/ 下全部")
@@ -109,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "package":
             stage = Path(args.stage) if args.stage else _stage(args, version)
             out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
-            package.zip_stage(stage, out_dir, version)
+            package.package_stage(stage, out_dir, version, fmt=args.format)
             return 0
 
         if args.cmd == "verify":
@@ -129,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
             out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
             for name in names:
                 archive = pack_mod.build_pack(name, version, out_dir,
-                                              args.with_ids, args.without_ids)
+                                              args.with_ids, args.without_ids,
+                                              fmt=args.format)
                 common.log(f"档位包完成: {archive}")
             return 0
 
@@ -140,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             stage = assemble_mod.assemble(version, args.with_ids, args.without_ids)
             smoke.smoke(stage)
             out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
-            archive = package.zip_stage(stage, out_dir, version)
+            archive = package.package_stage(stage, out_dir, version, fmt=args.format)
             verify.check_stage(stage)
             verify.check_archive(archive)
             common.log(f"CI 复现通过: {archive}")
@@ -150,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             stage = assemble_mod.assemble(version, args.with_ids, args.without_ids)
             smoke.smoke(stage)
             out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
-            archive = package.zip_stage(stage, out_dir, version)
+            archive = package.package_stage(stage, out_dir, version, fmt=args.format)
             verify.check_stage(stage)
             verify.check_archive(archive)
             common.log(f"全部完成: {archive}")
