@@ -39,7 +39,8 @@ build/assemble.py          装配 stage（组件 -> portable_config -> overlay -
 build/overlay.py           本地配置覆盖：复制 overlay/，给 mpv.conf 补 include
 overlay/                   本仓库自己的配置覆盖（sync/assemble 时自动叠加）
 build/smoke.py             python imports / mpv --version / vf=vapoursynth
-build/package.py           确定性 zip + .sha256（flat=True 时不带顶层目录，给补丁包用）
+build/package.py           出包 + .sha256：默认 7z（最高压缩率），--format zip 出确定性 zip
+build/sevenzip.py          7z 定位、创建、列名、读成员（verify 复用）
 build/pack.py              装配并打包拓展包（overlay zip）
 build/verify.py            stage 与 zip 的结构、禁止项、BUILD_INFO 校验
 build/sync.py              同步上游两个目录 + 写 upstream.json
@@ -64,7 +65,7 @@ python -m build all
   │    ├─ write_build_info()         BUILD_INFO.json（含 inputs_hash / lock_digest）
   │    └─ verify_stage_minimum()     必需项检查（支持 glob）
   ├─ smoke(stage)                    python 侧 import + mpv 侧 lavfi 恒等 vpy
-  ├─ package.zip_stage()             确定性 zip（固定 mtime、固定权限位）
+  ├─ package.package_stage()         默认 7z（LZMA2 -mx=9 -md=128m），--format zip 时确定性 zip
   ├─ verify.check_stage()            禁止项：__pycache__ / .pyc / sdk / 7z.exe ...
   └─ verify.check_archive()          根目录唯一、必需文件、禁止目录
 ```
@@ -72,14 +73,24 @@ python -m build all
 版本号来自 `VERSION` + 提交短哈希（`2026.11.20-9d5954a`），可用 `--version` 覆盖；
 CI 里用 `PLAYKIT_VERSION`。
 
+## 出包格式
+
+默认出 `.7z`（最高压缩率：LZMA2、`-mx=9`、`-md=128m`），体积约为 zip 的一半；
+要 7-Zip 才能在用户侧解压，构建机需要 `7z.exe`——查找顺序 `PLAYKIT_7Z` 环境变量 →
+`PATH` → 注册表 `SOFTWARE\7-Zip` → `C:\Program Files\7-Zip`（本机实测 winget 装在
+`C:\software\7-Zip`，注册表里已登记）。`python -m build ... --format zip` 回退到旧行为。
+`dist/out/<name>.sha256` 两种格式都有。
+
 ## 可复现性
 
-- 归档内所有条目 `date_time` 固定为 `2020-01-01 00:00:00`（`common.FIXED_TIME`）；
-- 目录条目用 STORE、文件用 deflate 6；`.exe/.com/.bat` 置 0755，其余 0644；
+- 默认 7z：`-mx=9 -m0=lzma2 -md=128m -mfb=273 -ms=on`，并 `-mtc=off -mtm=off -mta=off` 关掉时间戳，
+  条目顺序取文件系统遍历，因此字节级可复现性不如 zip 严格；验体积与内容仍用 `verify --pack`；
+- `--format zip` 时保留确定性路径：所有条目 `date_time` 固定为 `2020-01-01 00:00:00`（`common.FIXED_TIME`）、
+  目录 STORE、文件 deflate 6、`.exe/.com/.bat` 置 0755 其余 0644；
 - `inputs_hash` 对 `build/ manifests/ sources.lock.json overlay/ upstream.json
   VERSION requirements.txt .github/workflows/build.yml` 逐文件求哈希后排序再哈希，
   与遍历顺序、机器、时间无关；
-- 同一份 `inputs_hash` + 同一份 lock 应当产出同一个 zip（`built_at` 字段除外）。
+- 同一份 `inputs_hash` + 同一份 lock + 同一格式，应当产出同一份内容（`built_at` 字段、7z 头部字节除外）。
 
 `portable_config/` 不进 inputs_hash：它 132MB 且由上游同步而来，身份由
 `upstream.json` 的 commit id 表示，而 `upstream.json` 本身在哈希范围内。
@@ -160,12 +171,12 @@ python -m build.pin --id k7sfunc --version 1.9.0+pre.3 \
 python -m build.pin --pack vsdlssg --id engine-dlss45 --url <url>  # 钉版本
 python -m build pack --name vsdlssg                               # 只打一个
 python -m build pack                                              # 打全部
-python -m build verify --pack --asset dist/out/<pack>.zip         # 校验产物
+python -m build verify --pack --asset dist/out/<pack>.7z           # 校验产物（7z 或 zip 都收）
 ```
 
 清单里 `full: true` 时产出**全量包**：先把基础包装进同一个 stage，再叠本档组件，
-产物与基础包同构（唯一顶层目录，`...-windows-x64-<name>.zip`），用户只下一个。
-不带 `full` 时仍是**补丁包**：不带顶层目录的覆盖 zip（`...-windows-x64-pack-<name>.zip`），
+产物与基础包同构（唯一顶层目录，`...-windows-x64-<name>.7z`），用户只下一个。
+不带 `full` 时仍是**补丁包**：不带顶层目录的覆盖归档（`...-windows-x64-pack-<name>.7z`），
 解压到基础包根生效。当前两个档位都是全量包：
 
 | 包 | 形态 | 定位 | 内容 |
@@ -207,7 +218,7 @@ PACK_INFO.json                             包名、组件清单、lock_digest
 
 `.github/workflows/build.yml`：每日定时 / 手动 / PR → fetch → assemble → smoke → verify
 → 打两个全量档位包并逐个校验 → 上传单个 artifact `mpv-playkit-pre-windows-x64`
-（含 `*-vsdlssg.zip`、`*-vs-mlrt.zip`，14 天）。**故意不发布 release、不推 tag**，产物只走 artifact。
+（含 `*-vsdlssg.7z`、`*-vs-mlrt.7z` 及各自 `.sha256`，14 天）。**故意不发布 release、不推 tag**，产物只走 artifact。
 不 push 触发：本地全绿再推，避免每次推送失败都刷一封信。
 
 `.github/workflows/sync-upstream.yml`：每天 UTC 03:00 跑 `python -m build sync`

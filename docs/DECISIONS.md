@@ -352,3 +352,19 @@
 - **代价 / 边界**：常驻意味着无参数启动后进程与窗口一直存在，需要用户关窗或 `q` 退出（与
   PotPlayer/VLC 的一致行为）；不影响带文件启动、命令行批处理与 `--no-config` 场景。
   只改我们自己的 overlay 文件，不动上游 `portable_config/mpv.conf`。
+
+## 23. 出包默认改 7z 最高压缩率，zip 仅作回退（2026-11-23）
+
+- **决策**：`build/package.py` 默认 `7z`（`-t7z -mx=9 -m0=lzma2 -md=128m -mfb=273 -ms=on`，
+  时间戳三项关闭），`--format zip` 走原来的确定性 zip。`build/sevenzip.py` 负责定位、创建、
+  列名与读成员（`verify` 读 `PACK_INFO.json` 也从 7z 里取）。
+- **原因**：全量包内容以 DLL/运行时为主，7z 收益远超第 13 条当时对模型 zip 的估计——
+  实测 vsdlssg 498.1MB → **337.7MB**（-32%），vs-mlrt 1086.0MB → **680.9MB**（-37%）。
+  用户明确要求"使用最高压缩比率 7z"。
+- **代价 / 边界**：用户需 7-Zip（或兼容 7z 的解压器）；构建机需 `7z.exe`，查找顺序
+  `PLAYKIT_7Z` → `PATH` → 注册表 `SOFTWARE\7-Zip` → `C:\Program Files\7-Zip`
+  （本机 winget 装到 `C:\software\7-Zip`，注册表已登记）。7z 无 zip 那样的固定时间戳，
+  字节级可复现性弱于 zip（内容与 `verify` 结果一致），需要严格复现时用 `--format zip`。
+  CI 侧 `.github/workflows/build.yml` 校验与上传改 `*.7z` + `*.sha256`。
+- **第 13 条不再适用**：那条讲的是把"模型 zip"再套一层，收益只有 ~5MB；现在压缩的是
+  整个包的 DLL/运行时闭包，且 7-Zip 已成为本机与 CI 的既有依赖。

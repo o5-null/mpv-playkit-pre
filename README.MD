@@ -29,7 +29,7 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 
 ## 快速开始
 
-1. 解压 zip，进入 `mpv-playkit-pre-<版本>-windows-x64/`；
+1. 解压 7z（7-Zip 或兼容工具），进入 `mpv-playkit-pre-<版本>-windows-x64/`；
 2. `mpv.exe` 直接播放。VapourSynth 链路不需要额外配置：`portable.vs` 与 `python*._pth` 已就位，
    `k7f_vs.lua` 会在首次运行时把 Python 定位写进 `%APPDATA%\vapoursynth\vapoursynth.toml`；
 3. 想用预设，在你自己的 `input.conf` 里加一条绑定（脚本默认不占用任何按键）：
@@ -52,8 +52,11 @@ Ctrl+Shift+o  script-binding k7f_playkit/off
 
 | 包 | 内容 | 体积 | 需要的硬件 |
 | --- | --- | --- | --- |
-| `...-windows-x64-vsdlssg.zip`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / FSR-FG 四套引擎运行时（含 sm86 解锁）；aji 插帧暂缓 | ~498 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
-| `...-windows-x64-vs-mlrt.zip` | 完整播放器 + `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan / dpir 去块模型 + 通用超分 / ArtCNN / RIFE / DRBA 模型 + onnx 等 Python 依赖 | ~1.1 GB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+| `...-windows-x64-vsdlssg.7z`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / FSR-FG 四套引擎运行时（含 sm86 解锁）；aji 插帧暂缓 | ~338 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
+| `...-windows-x64-vs-mlrt.7z` | 完整播放器 + `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan / dpir 去块模型 + 通用超分 / ArtCNN / RIFE / DRBA 模型 + onnx 等 Python 依赖 | ~681 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+
+> 包是 `7z`（最高压缩率 LZMA2），需要 [7-Zip](https://www.7-zip.org/) 或兼容工具解压；
+> 解压后是 `mpv-playkit-pre-<版本>-windows-x64/` 这一个目录。
 
 - 两个包结构一致（`mpv.exe` + `portable_config/` + `Lib/` + `vs-plugins/` + `BUILD_INFO.json`），
   只有 `vs-plugins/` 与 `Lib/site-packages/vapoursynth/plugins/` 的内容不同；`PACK_INFO.json`
@@ -72,14 +75,14 @@ pip install -r requirements.txt
 python -m build ci         # 与 CI 同序：fetch -> assemble -> smoke -> package -> verify
 ```
 
-产物在 `dist/out/mpv-playkit-pre-<版本>-windows-x64.zip`（附 `.sha256`）。只重建不下载时用
+产物在 `dist/out/mpv-playkit-pre-<版本>-windows-x64.7z`（附 `.sha256`；`--format zip` 出旧格式）。只重建不下载时用
 `python -m build all`（跳过 fetch）。分步执行：
 
 ```bash
 python -m build fetch      # 下载并校验全部组件
 python -m build assemble   # 装配 dist/stage/
 python -m build smoke      # python/mpv/vapoursynth 冒烟测试
-python -m build package    # 打确定性 zip
+python -m build package    # 出 7z（--format zip 出确定性 zip）
 python -m build pack       # 打全部档位包（--name vsdlssg 只打一个）
 python -m build verify --stage
 python -m build verify --asset dist/out
