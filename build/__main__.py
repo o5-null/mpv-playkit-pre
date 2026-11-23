@@ -35,6 +35,86 @@ def _stage(args, version: str) -> Path:
     return common.STAGE_ROOT / common.package_basename(version)
 
 
+def _pack_command(name: str, version: str, out_dir: Path, args) -> list[str]:
+    """子进程命令行：单个档位包，自身再串行（--jobs 1）避免层层并发。"""
+    cmd = [sys.executable, "-m", "build", "pack", "--name", name,
+           "--version", version, "--format", args.format,
+           "--out-dir", str(out_dir), "--jobs", "1"]
+    for value in args.with_ids:
+        cmd += ["--with", value]
+    for value in args.without_ids:
+        cmd += ["--without", value]
+    if args.force:
+        cmd += ["--force"]
+    return cmd
+
+
+def _run_packs(names: list[str], version: str, out_dir: Path, args) -> int:
+    """并行构建多个档位包。
+
+    每个档位包放进独立子进程：装配主要是复制与解压文件，用线程做只会被 GIL
+    串行化，还和压缩阶段的等待混在一起。父进程负责预取组件、分发任务，并把
+    子进程日志按 `[包名]` 前缀转发出来。
+
+    组件必须先串行预取：各档位包共用 base 组件，同时解开同一份缓存会互相踩。
+    """
+    import queue
+    import subprocess
+    import threading
+
+    jobs = getattr(args, "jobs", 0)
+    jobs = jobs if jobs > 0 else min(len(names), 4)
+    if jobs <= 1 or len(names) <= 1:
+        for name in names:
+            archive = pack_mod.build_pack(name, version, out_dir,
+                                          args.with_ids, args.without_ids,
+                                          fmt=args.format)
+            common.log(f"档位包完成: {archive}")
+        return 0
+
+    common.log(f"并行构建 {len(names)} 个档位包（并发 {jobs}）: " + ", ".join(names))
+    for name in names:
+        selected = pack_mod.select_pack_components(name, args.with_ids, args.without_ids)
+        fetch.fetch_all(selected, force=args.force)
+
+    root = Path(__file__).resolve().parents[1]
+    tasks: queue.Queue[str] = queue.Queue()
+    for name in names:
+        tasks.put(name)
+    failures: list[str] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        while True:
+            try:
+                name = tasks.get_nowait()
+            except queue.Empty:
+                return
+            proc = subprocess.Popen(
+                _pack_command(name, version, out_dir, args), cwd=str(root),
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", bufsize=1)
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                print(f"[{name}] {line.rstrip()}", flush=True)
+            code = proc.wait()
+            if code != 0:
+                with lock:
+                    failures.append(name)
+            tasks.task_done()
+
+    threads = [threading.Thread(target=worker, daemon=True) for _ in range(jobs)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    if failures:
+        common.fail("档位包构建失败: " + ", ".join(failures))
+    common.log(f"全部档位包完成: {len(names)} 个")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m build")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -86,6 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     p_pack.add_argument("--name", action="append", default=[], metavar="NAME",
                         help="补丁包名（可重复），默认 manifests/packs/ 下全部")
     p_pack.add_argument("--out-dir")
+    p_pack.add_argument("--jobs", type=int, default=0,
+                        help="并行装配的档位包数量，默认自动（不超过 4），1 = 串行")
 
     args = parser.parse_args(argv)
 
@@ -141,12 +223,7 @@ def main(argv: list[str] | None = None) -> int:
             if not names:
                 common.fail("manifests/packs/ 下没有档位包清单")
             out_dir = Path(args.out_dir) if args.out_dir else common.OUT_DIR
-            for name in names:
-                archive = pack_mod.build_pack(name, version, out_dir,
-                                              args.with_ids, args.without_ids,
-                                              fmt=args.format)
-                common.log(f"档位包完成: {archive}")
-            return 0
+            return _run_packs(names, version, out_dir, args)
 
         if args.cmd == "ci":
             # 与 .github/workflows/build.yml 同序：fetch -> assemble -> smoke -> package -> verify
