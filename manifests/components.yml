@@ -13,6 +13,7 @@
 #   members     kind=mpv-7z：从 7z 中只取这些文件，放到包根
 #   extract     kind=archive：7z | zip
 #   exclude     kind=archive：整树复制时排除的路径（前缀或通配符）
+#   include     kind=archive：只装命中白名单的路径（前缀或通配符），与 exclude 叠加
 #   install_to  安装目录（相对包根，默认 "."）
 #   copies      装完后把 source（相对包根）复制到 target（相对包根）
 #   python_pth  true 表示安装后补写 <python*._pth>：加 site-packages 并启用 site
@@ -225,11 +226,14 @@ components:
     license: MIT
     extract: zip
     install_to: .
-    # 发行包里的引擎目录（v0.2.0 起是 vs-plugins/dlss45、vs-plugins/xessfg，
-    # 旧版是 vs-plugins/bin/<引擎>）留给补丁包
+    # 发行包里的引擎与运行时目录（v0.2.0 起是 vs-plugins/dlss45、vs-plugins/xessfg，
+    # 另有 vfg/、fsr4/ 两颗引擎的运行时；旧版是 vs-plugins/bin/<引擎>）
+    # 基础包只要四个 DLL，这些目录交给档位包
     exclude:
       - vs-plugins/dlss45
       - vs-plugins/xessfg
+      - vs-plugins/vfg
+      - vs-plugins/fsr4
       - vs-plugins/bin
     provides:
       - vs-plugins/vdlssg.dll

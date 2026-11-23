@@ -86,6 +86,8 @@ def install_archive(stage: Path, comp: dict, archive: Path) -> None:
     install_to = comp.get("install_to", ".")
     dest_root = stage / install_to
     excludes = comp.get("exclude") or []
+    # include 非空时只装命中白名单的条目（同一个资产里挑子目录，如只取一颗引擎）
+    includes = comp.get("include") or []
     # flatten：把树里的文件按文件名摊平到 install_to（用于 wheel 里的 DLL 集合）
     flatten = bool(comp.get("flatten"))
     tmp = common.make_temp_dir(f"{comp['id']}-")
@@ -93,6 +95,8 @@ def install_archive(stage: Path, comp: dict, archive: Path) -> None:
     count = 0
     for src in tmp.rglob("*"):
         rel = src.relative_to(tmp).as_posix()
+        if includes and not common.match_any(rel, includes):
+            continue
         if common.match_any(rel, excludes):
             continue
         target = dest_root / (src.name if flatten else rel)

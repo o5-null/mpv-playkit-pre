@@ -32,10 +32,10 @@
     },
     "vs-framegen-dlls": {
       "version": "0.2.0",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0-mpv-lazy.zip",
-      "sha256": "0ad8b16a86930e8567b198764e8dcc7992017eb171667f969da46c4ba3df7c82",
-      "size": 43193700,
-      "pinned_at": "2026-11-23T08:48:32Z"
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0.zip",
+      "sha256": "7dd12283b6b9672012ceebd40bc1b7db00c5b1222f4c9533f82012eef3e99c16",
+      "size": 253851787,
+      "pinned_at": "2026-11-23T10:06:10Z"
     },
     "vs-mlrt/models-artcnn": {
       "version": "models-artcnn",
@@ -221,17 +221,31 @@
     },
     "vsdlssg/engine-dlss45": {
       "version": "0.2.0",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/engine-dlss45-mpv-lazy.zip",
-      "sha256": "e8a3e72aa65212104e05a0f811a2838483ef02c070925fd06c931c563c87fc8d",
-      "size": 21460515,
-      "pinned_at": "2026-11-23T08:48:32Z"
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0.zip",
+      "sha256": "7dd12283b6b9672012ceebd40bc1b7db00c5b1222f4c9533f82012eef3e99c16",
+      "size": 253851787,
+      "pinned_at": "2026-11-23T10:06:10Z"
+    },
+    "vsdlssg/engine-fsr4": {
+      "version": "0.2.0",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0.zip",
+      "sha256": "7dd12283b6b9672012ceebd40bc1b7db00c5b1222f4c9533f82012eef3e99c16",
+      "size": 253851787,
+      "pinned_at": "2026-11-23T10:07:34Z"
+    },
+    "vsdlssg/engine-vfg": {
+      "version": "0.2.0",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0.zip",
+      "sha256": "7dd12283b6b9672012ceebd40bc1b7db00c5b1222f4c9533f82012eef3e99c16",
+      "size": 253851787,
+      "pinned_at": "2026-11-23T10:07:34Z"
     },
     "vsdlssg/engine-xessfg": {
       "version": "0.2.0",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/engine-xessfg-mpv-lazy.zip",
-      "sha256": "0ae2041674219863527948444d30c2959c533687086cfc3665483d75e0a12dd0",
-      "size": 21458704,
-      "pinned_at": "2026-11-23T08:48:32Z"
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.0/vs-framegen-0.2.0.zip",
+      "sha256": "7dd12283b6b9672012ceebd40bc1b7db00c5b1222f4c9533f82012eef3e99c16",
+      "size": 253851787,
+      "pinned_at": "2026-11-23T10:06:10Z"
     },
     "yt-dlp": {
       "version": "2026.10.26",

@@ -27,7 +27,8 @@ summary: >-
   aji（AnimeJaNai）插帧暂缓，见文末组件。
 
 components:
-  # o5-null/vs-framegen v0.2.0 的引擎资产，条目本来就是 vs-plugins/bin/dlss45/... 开头。
+  # o5-null/vs-framegen v0.2.0 的发行 zip 现在是一个合并包（四个 DLL + dlss45/xessfg/vfg/fsr4），
+  # 所以两颗引擎都指向同一资产、用 include 各取一棵子树（下载走相同的缓存文件）。
   # 注意 dlssg_sm86/logs/.gitkeep 不能丢：日志目录不存在时引擎会静默失败。
   - id: engine-dlss45
     kind: archive
@@ -36,6 +37,8 @@ components:
     license: MIT
     extract: zip
     install_to: .
+    include:
+      - vs-plugins/dlss45
     provides:
       - vs-plugins/dlss45/dlssg2f.exe
       - vs-plugins/dlss45/dlssg_sm86.ini
@@ -50,11 +53,43 @@ components:
     license: MIT
     extract: zip
     install_to: .
+    include:
+      - vs-plugins/xessfg
     provides:
       - vs-plugins/xessfg/dlssg2f.exe
       - vs-plugins/xessfg/version.dll
       - vs-plugins/xessfg/dlssg_sm86/logs/.gitkeep
       - vs-plugins/xessfg/dlssg_sm86/runtime/nvngx_dlssg.dll
+
+  # vvfg 插件用的 NVIDIA 帧生成运行时（~210MB），不带它 vvfg.dll 起不来。
+  - id: engine-vfg
+    kind: archive
+    summary: NVIDIA VFG 运行时（NVCVImage / NVVideoEffects / nvVFXVideoFrameGeneration）
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    include:
+      - vs-plugins/vfg
+    provides:
+      - vs-plugins/vfg/nvVFXVideoFrameGeneration.dll
+      - vs-plugins/vfg/NVVideoEffects.dll
+      - vs-plugins/vfg/cudart64_12.dll
+
+  # vfsr4 插件用的 FSR 帧生成运行时（vkd3d-proton 转 D3D12 + AMD FidelityFX）。
+  - id: engine-fsr4
+    kind: archive
+    summary: AMD FSR 帧生成运行时（FidelityFX + vkd3d-proton 桥）
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    include:
+      - vs-plugins/fsr4
+    provides:
+      - vs-plugins/fsr4/amd_fidelityfx_framegeneration_dx12.dll
+      - vs-plugins/fsr4/smv_fsrfg_bridge.dll
+      - vs-plugins/fsr4/smv_vkd3d_d3d12.dll
 
   # aji 发行包（o5-null/vsaji 的 release）根目录是 aji/，里面是扁平布局：
   # rife_aji.dll 与 aji.dll / aji_trt.dll / nvinfer 同层。
