@@ -65,24 +65,28 @@ presets:
     vpy: vs/MEMC_DLSSG_NV.vpy
     label: 预设 补帧 Dlss (DLC-vsNV)
     requires: vsdlssg 引擎 vdlssg
+    multi: true
 
   - id: xessfg
     key: "("
     vpy: vs/MEMC_XESSFG_NV.vpy
     label: 预设 补帧 XeSS-FG 2× (DLC-vsNV)
     requires: vsdlssg 引擎 vxessfg
+    multi: true
 
   - id: vfg
     key: ")"
     vpy: vs/MEMC_VFG_NV.vpy
     label: 预设 补帧 VFG 2-6× (DLC-vsNV)
     requires: vsdlssg 引擎 vvfg
+    multi: true
 
   - id: fsr4
     key: "_"
     vpy: vs/MEMC_FSR4.vpy
     label: 预设 补帧 FSR4
     requires: vsdlssg 引擎 vfsr4
+    multi: true
 
 # 原生滤镜段：menu.conf 里插在 VF 滤镜与着色器之间的独立标记区
 # （# >>> playkit-config:native / # <<< playkit-config:native）。
@@ -106,6 +110,18 @@ native:
       params:
         dll: vs-plugins/vdlssg.dll
         proxy_dir: vs-plugins/dlss45
+
+# 通用倍数段：menu.conf 里紧跟 VF 预设的独立标记区
+# （# >>> playkit-config:multi / # <<< playkit-config:multi）。
+# 菜单只发消息给 k7f_multi.lua：倍数存在 ~~/_cache/k7f_multi.json 里，重启后仍然生效；
+# 改倍数时脚本把 multi 写进当前 vf 的 user-data（playkit 滤镜则写 multi 参数），
+# 之后套用的任何预设也会自动补上。只有"本包启用了 multi: true 的预设"时才生成——
+# base 包是 MVTools，不解析 user-data，生成了也只是点不动的死选项。
+multi:
+  section: 倍数 (&M)
+  follow_label: 跟随预设 (&F)
+  target: k7f_multi
+  entries: [2, 3, 4, 5, 6]
 
 # 每个包启用的预设（id）。
 # base = 中间基础 stage 的配置（assemble / smoke / verify 用它；全量档位包打包时会被包名覆盖），

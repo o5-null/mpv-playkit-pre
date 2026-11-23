@@ -34,6 +34,10 @@ END = "# <<< playkit-config:vf"
 NATIVE_BEGIN = "# >>> playkit-config:native（由 manifests/config.yml 生成，勿手改）"
 NATIVE_END = "# <<< playkit-config:native"
 
+# 通用倍数区（menu.conf 里紧跟在 VF 预设之后，对所有会读 user-data 的插帧生效）
+MULTI_BEGIN = "# >>> playkit-config:multi（由 manifests/config.yml 生成，勿手改）"
+MULTI_END = "# <<< playkit-config:multi"
+
 # menu.conf 的标记行与禁用项要带状态：select.lua 不认 # 注释，任何一行都会变成
 # 菜单项；hidden=true 让它不画，disabled=true 让它画成灰色且点不动。
 MENU_HIDDEN = "\thidden=true"
@@ -88,6 +92,11 @@ def load(path: Path = CONFIG_PATH) -> dict:
         if unknown:
             common.fail(f"配置清单 {name} 包引用了不存在的预设: {', '.join(unknown)}")
 
+    # 预设可以声明自己吃 user-data 的 multi（通用倍数菜单只对这些预设生效）
+    for preset in presets:
+        if preset.get("multi") not in (None, True):
+            common.fail(f"预设 {preset['id']} 的 multi 只能是 true 或省略")
+
     # 原生滤镜（menu.conf 里的独立段）：条目只能在限定包里出现，且必须给出档位
     native = data.get("native") or {}
     entries = native.get("entries") or []
@@ -108,6 +117,18 @@ def load(path: Path = CONFIG_PATH) -> dict:
         unknown = sorted(set(entry["packs"]) - set(packs))
         if unknown:
             common.fail(f"原生滤镜 {eid} 引用了不存在的包: {', '.join(unknown)}")
+
+    # 通用倍数菜单（可选段）：条目只是倍数，命令全部交给 k7f_multi 落盘并套用
+    multi = data.get("multi") or {}
+    if multi:
+        for field in ("section", "follow_label", "target"):
+            if not multi.get(field):
+                common.fail(f"配置清单的 multi 段缺少 {field}: {multi}")
+        steps = multi.get("entries") or []
+        if not steps or any(not isinstance(step, int) or step < 2 for step in steps):
+            common.fail("配置清单的 multi.entries 必须是不小于 2 的整数列表")
+        if len(set(steps)) != len(steps):
+            common.fail("配置清单的 multi.entries 有重复值")
     return data
 
 
@@ -120,12 +141,20 @@ def pack_config(name: str | None) -> dict:
         common.fail(f"配置清单里没有包 {key}（可用: {available}）")
     native = data.get("native") or {}
     entries = [e for e in native.get("entries") or [] if key in e["packs"]]
+    multi = data.get("multi") or {}
+    # 通用倍数只在"本包启用了会读 user-data 的预设"时才有意义（base 包是 MVTools，
+    # 不解析 user-data，生成了也只会是点不动的死选项）
+    multi_on = bool(multi) and any(
+        p.get("multi") for p in data["presets"] if p["id"] in packs[key].get("enable") or []
+    )
     return {
         "name": key,
         "presets": data["presets"],
         "enable": set(packs[key].get("enable") or []),
         "native": native,
         "native_entries": entries,
+        "multi": multi,
+        "multi_on": multi_on,
     }
 
 
@@ -210,6 +239,26 @@ def render_native(native: dict, entries: list[dict]) -> list[str]:
     return body
 
 
+def _multi_command(multi: dict, step: int) -> str:
+    """通用倍数菜单的命令：状态与套用都在 k7f_multi 里，菜单只发消息。"""
+    return f"script-message-to {multi['target']} set {step}"
+
+
+def render_multi(multi: dict, enabled: bool) -> list[str]:
+    """menu.conf 的通用倍数区：段标题 + 跟随预设 + 每档倍数。
+
+    该包没有会读 user-data 的预设时整段不生成（标记区之间留空）。
+    """
+    if not enabled:
+        return []
+    body = [multi["section"]]
+    body.append(f"\t{multi['follow_label']}\t"
+                f"script-message-to {multi['target']} clear")
+    for step in multi["entries"]:
+        body.append(f"\t{step}× (&{step})\t{_multi_command(multi, step)}")
+    return body
+
+
 def _read_lines(path: Path) -> tuple[list[str], str]:
     """读文本并按原文件的行尾风格拆分（这两份基准文件是 CRLF）。"""
     raw = path.read_bytes().decode("utf-8")
@@ -277,6 +326,8 @@ def apply(stage: Path, pack: str | None = None) -> None:
                  BEGIN + MENU_HIDDEN, END + MENU_HIDDEN)
     splice_block(menu, render_native(cfg["native"], cfg["native_entries"]),
                  NATIVE_BEGIN + MENU_HIDDEN, NATIVE_END + MENU_HIDDEN)
+    splice_block(menu, render_multi(cfg["multi"], cfg["multi_on"]),
+                 MULTI_BEGIN + MENU_HIDDEN, MULTI_END + MENU_HIDDEN)
 
     keep = {Path(p["vpy"]).name for p in presets if p["id"] in enable}
     removed = prune_vpy(_config_root(stage), keep)
@@ -294,6 +345,7 @@ def check(stage: Path, pack: str | None = None) -> None:
         (INPUT_NAME, BEGIN, END),
         (MENU_NAME, BEGIN + MENU_HIDDEN, END + MENU_HIDDEN),
         (MENU_NAME, NATIVE_BEGIN + MENU_HIDDEN, NATIVE_END + MENU_HIDDEN),
+        (MENU_NAME, MULTI_BEGIN + MENU_HIDDEN, MULTI_END + MENU_HIDDEN),
     ):
         path = cfg_root / name
         if not path.exists():
@@ -309,6 +361,14 @@ def check(stage: Path, pack: str | None = None) -> None:
         common.fail(f"pack={cfg['name']} 缺少原生滤镜段: {section}")
     if not cfg["native_entries"] and section in menu_text:
         common.fail(f"pack={cfg['name']} 不该出现原生滤镜段（没有可用的引擎）")
+
+    # 通用倍数段同理：只有本包启用了会读 user-data 的预设才出现
+    multi = cfg["multi"]
+    if multi:
+        if cfg["multi_on"] and multi["section"] not in menu_text:
+            common.fail(f"pack={cfg['name']} 缺少通用倍数段: {multi['section']}")
+        if not cfg["multi_on"] and multi["section"] in menu_text:
+            common.fail(f"pack={cfg['name']} 不该出现通用倍数段（没有会读 user-data 的预设）")
     for entry in cfg["native_entries"]:
         rel = entry.get("file")
         if not rel:
