@@ -275,6 +275,9 @@ components:
         target: portable_config/scripts/k7f_bridge.lua
       - source: mpv/portable_config/scripts/k7f_vpypar.lua
         target: portable_config/scripts/k7f_vpypar.lua
+      # 通用倍数菜单：把 multi 注进当前 vf 链并落盘，菜单命令由 build/config.py 生成
+      - source: mpv/portable_config/scripts/k7f_multi.lua
+        target: portable_config/scripts/k7f_multi.lua
       - source: mpv/portable_config/script-opts/k7f_playkit.conf
         target: portable_config/script-opts/k7f_playkit.conf
       # 帧生成补帧脚本（DLSS-G / XeSS-FG / VFG / FSR4）；插件 DLL 在基础组件，引擎在档位包
