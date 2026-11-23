@@ -426,4 +426,27 @@
   - 引擎一进程一帧尺寸，换分辨率要重开文件；桥只有 DLSS-G，XeSS/VFG/FSR4 仍只有 VS 路径。
   - 改了 `vf_playkit.c` 就得重编 mpv、重新 `build.pin` 钉新的 release，包内 mpv 才认相对路径。
 
+## 26. 出包压缩档从 9 降到 7（2026-11-24）
+
+- **决策**：`build/sevenzip.py` 的 `SEVENZIP_ARGS` 改 `-t7z -mx=7 -m0=lzma2 -ms=on`（其余时间戳
+  与 `-bd -y` 不变），并把 `-md=128m -mfb=273` 删掉——那两项是九档的字典与匹配参数，写回去
+  等于把九档套在七档上，时间省不下来。
+- **原因**：全量档位包（947MB / 1685MB）用 `-mx=9` 固实压缩要 5~8 分钟且吃满 CPU，用户在
+  构建环节明确要求降到七档。体积代价实测约 3~5%，换来打包时间降到三分之一左右。
+- **代价 / 边界**：产物体积与 `SHA-256` 都变了，旧 `.sha256` 不再对应；内容一致性仍由
+  `python -m build verify --pack` 把关。需要极限体积时可临时改回九档，但不要只改 `-mx`、
+  又保留 `-md/-mfb`。
+
+## 27. 安装器的解包临时目录一律 `try/finally` 清理（2026-11-24）
+
+- **决策**：`build/assemble.py` 的 `install_mpv` / `install_archive` / `install_wheel` /
+  `install_git_tree` 把"解包 + 复制"包进 `try/finally: common.remove_tree(tmp)`。
+- **原因**：`common.make_temp_dir()` 只做 `tempfile.mkdtemp(dir=WORK_DIR)`、自己不登记清理，
+  四个安装器建完从不删除 → 每成功构建一次就在 `.work` 漏一份完整解包副本。叠加被 `taskkill`
+  中断的几次构建，`.work` 累积到 **51.57 GB**，把 `E:` 写满（`Free 475136`），并行档位包因此
+  双双 `WinError 112` / `Errno 28` 失败。
+- **代价 / 边界**：进程被强杀（`taskkill /F`、系统重启）时 `finally` 不执行，仍会残留；那种
+  情况靠手动清 `.work`（保留 `*-local.*` 覆盖件与测试脚本）。
+
+
 

@@ -75,13 +75,17 @@ def install_mpv(stage: Path, comp: dict, archive: Path) -> None:
     if not members:
         common.fail(f"{comp['id']}: kind=mpv-7z 需要 members")
     tmp = common.make_temp_dir(f"{comp['id']}-")
-    common.extract_7z(archive, tmp, members)
-    for member in members:
-        src = tmp / member
-        if not src.exists():
-            common.fail(f"{comp['id']}: 压缩包内缺少 {member}")
-        common.copy_file(src, stage / member)
-    common.log(f"{comp['id']}: 取出 {len(members)} 个文件")
+    try:
+        common.extract_7z(archive, tmp, members)
+        for member in members:
+            src = tmp / member
+            if not src.exists():
+                common.fail(f"{comp['id']}: 压缩包内缺少 {member}")
+            common.copy_file(src, stage / member)
+        common.log(f"{comp['id']}: 取出 {len(members)} 个文件")
+    finally:
+        # 解包目录不删会一路堆在 .work，每次构建都留一份完整副本
+        common.remove_tree(tmp)
 
 
 def install_archive(stage: Path, comp: dict, archive: Path) -> None:
@@ -93,24 +97,27 @@ def install_archive(stage: Path, comp: dict, archive: Path) -> None:
     # flatten：把树里的文件按文件名摊平到 install_to（用于 wheel 里的 DLL 集合）
     flatten = bool(comp.get("flatten"))
     tmp = common.make_temp_dir(f"{comp['id']}-")
-    common.extract(archive, tmp, comp.get("extract", "7z"))
-    count = 0
-    for src in tmp.rglob("*"):
-        rel = src.relative_to(tmp).as_posix()
-        if includes and not common.match_any(rel, includes):
-            continue
-        if common.match_any(rel, excludes):
-            continue
-        target = dest_root / (src.name if flatten else rel)
-        if src.is_dir():
-            if flatten:
+    try:
+        common.extract(archive, tmp, comp.get("extract", "7z"))
+        count = 0
+        for src in tmp.rglob("*"):
+            rel = src.relative_to(tmp).as_posix()
+            if includes and not common.match_any(rel, includes):
                 continue
-            target.mkdir(parents=True, exist_ok=True)
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, target)
-        count += 1
-    common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
+            if common.match_any(rel, excludes):
+                continue
+            target = dest_root / (src.name if flatten else rel)
+            if src.is_dir():
+                if flatten:
+                    continue
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, target)
+            count += 1
+        common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
+    finally:
+        common.remove_tree(tmp)
 
 
 def install_wheel(stage: Path, comp: dict, archive: Path) -> None:
@@ -119,20 +126,23 @@ def install_wheel(stage: Path, comp: dict, archive: Path) -> None:
     dest_root = stage / install_to
     excludes = comp.get("exclude") or []
     tmp = common.make_temp_dir(f"{comp['id']}-")
-    common.extract_zip(archive, tmp)
-    count = 0
-    for src in tmp.rglob("*"):
-        rel = src.relative_to(tmp).as_posix()
-        if common.match_any(rel, excludes):
-            continue
-        target = dest_root / rel
-        if src.is_dir():
-            target.mkdir(parents=True, exist_ok=True)
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, target)
-        count += 1
-    common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
+    try:
+        common.extract_zip(archive, tmp)
+        count = 0
+        for src in tmp.rglob("*"):
+            rel = src.relative_to(tmp).as_posix()
+            if common.match_any(rel, excludes):
+                continue
+            target = dest_root / rel
+            if src.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, target)
+            count += 1
+        common.log(f"{comp['id']}: 安装 {count} 个文件 -> {install_to}")
+    finally:
+        common.remove_tree(tmp)
 
 
 def install_file(stage: Path, comp: dict, archive: Path) -> None:
@@ -145,22 +155,25 @@ def install_file(stage: Path, comp: dict, archive: Path) -> None:
 
 def install_git_tree(stage: Path, comp: dict, archive: Path) -> None:
     tmp = common.make_temp_dir(f"{comp['id']}-")
-    common.extract(archive, tmp, "tar")
-    tops = [p for p in tmp.iterdir() if p.is_dir()]
-    if len(tops) != 1:
-        common.fail(f"{comp['id']}: tarball 顶层目录不是唯一的: {[p.name for p in tops]}")
-    root = tops[0]
-    for item in comp["paths"]:
-        src = root / item["source"]
-        if not src.exists():
-            common.fail(f"{comp['id']}: 源码树缺少 {item['source']}（fork 是否已推送？）")
-        target = stage / item["target"]
-        if src.is_dir():
-            # 上游 fork 把 __pycache__ 提交进了仓库，复制时一律剔除
-            common.copy_tree(src, target, ignore=["__pycache__", "*.pyc"])
-        else:
-            common.copy_file(src, target)
-    common.log(f"{comp['id']}: 复制 {len(comp['paths'])} 条路径")
+    try:
+        common.extract(archive, tmp, "tar")
+        tops = [p for p in tmp.iterdir() if p.is_dir()]
+        if len(tops) != 1:
+            common.fail(f"{comp['id']}: tarball 顶层目录不是唯一的: {[p.name for p in tops]}")
+        root = tops[0]
+        for item in comp["paths"]:
+            src = root / item["source"]
+            if not src.exists():
+                common.fail(f"{comp['id']}: 源码树缺少 {item['source']}（fork 是否已推送？）")
+            target = stage / item["target"]
+            if src.is_dir():
+                # 上游 fork 把 __pycache__ 提交进了仓库，复制时一律剔除
+                common.copy_tree(src, target, ignore=["__pycache__", "*.pyc"])
+            else:
+                common.copy_file(src, target)
+        common.log(f"{comp['id']}: 复制 {len(comp['paths'])} 条路径")
+    finally:
+        common.remove_tree(tmp)
 
 
 def install_repo_files(stage: Path, comp: dict, archive: Path | None) -> None:

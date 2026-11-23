@@ -83,7 +83,7 @@ def sevenzip_stage(stage: Path, out_dir: Path | None = None,
     out_dir = out_dir or common.OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     target = out_dir / f"{_archive_stem(stage, version, flat)}.7z"
-    common.log(f"7z 打包中（-mx=9 固实，{stage}）...")
+    common.log(f"7z 打包中（-mx=7 固实，{stage}）...")
     sevenzip.create_archive(stage, target, flat=flat)
     digest = common.sha256_file(target)
     _write_checksum(target, digest)

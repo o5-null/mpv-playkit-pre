@@ -42,7 +42,7 @@ build/assemble.py          装配 stage（组件 -> 配置清单生成 portable_
 build/config.py            按 manifests/config.yml 生成预设区、裁掉未启用的 vpy
 portable_config/           本地维护的基准配置（mpv-lazy 最后发版；仅 shaders/ 跟随上游）
 build/smoke.py             python imports / mpv --version / vf=vapoursynth
-build/package.py           出包 + .sha256：默认 7z（最高压缩率），--format zip 出确定性 zip
+build/package.py           出包 + .sha256：默认 7z（-mx=7），--format zip 出确定性 zip
 build/sevenzip.py          7z 定位、创建、列名、读成员（verify 复用）
 build/pack.py              装配并打包拓展包（补丁归档）
 build/verify.py            stage 与 zip 的结构、禁止项、BUILD_INFO 校验
@@ -68,7 +68,7 @@ python -m build all
   │    ├─ write_build_info()         BUILD_INFO.json（含 inputs_hash / lock_digest）
   │    └─ verify_stage_minimum()     必需项检查（支持 glob）
   ├─ smoke(stage)                    python 侧 import + mpv 侧 lavfi 恒等 vpy
-  ├─ package.package_stage()         默认 7z（LZMA2 -mx=9 -md=128m），--format zip 时确定性 zip
+  ├─ package.package_stage()         默认 7z（LZMA2 -mx=7），--format zip 时确定性 zip
   ├─ verify.check_stage()            禁止项：__pycache__ / .pyc / sdk / 7z.exe ...
   └─ verify.check_archive()          根目录唯一、必需文件、禁止目录
 ```
@@ -78,7 +78,8 @@ CI 里用 `PLAYKIT_VERSION`。
 
 ## 出包格式
 
-默认出 `.7z`（最高压缩率：LZMA2、`-mx=9`、`-md=128m`），体积约为 zip 的一半；
+默认出 `.7z`（LZMA2、`-mx=7`，体积约为 zip 的一半），体积比九档大约多 3~5%，
+但打包耗时降到三分之一左右；
 要 7-Zip 才能在用户侧解压，构建机需要 `7z.exe`——查找顺序 `PLAYKIT_7Z` 环境变量 →
 `PATH` → 注册表 `SOFTWARE\7-Zip` → `C:\Program Files\7-Zip`（本机实测 winget 装在
 `C:\software\7-Zip`，注册表里已登记）。`python -m build ... --format zip` 回退到旧行为。
@@ -86,7 +87,8 @@ CI 里用 `PLAYKIT_VERSION`。
 
 ## 可复现性
 
-- 默认 7z：`-mx=9 -m0=lzma2 -md=128m -mfb=273 -ms=on`，并 `-mtc=off -mtm=off -mta=off` 关掉时间戳，
+- 默认 7z：`-mx=7 -m0=lzma2 -ms=on`（字典与匹配参数由档位自身决定，不再手写
+  `-md=128m -mfb=273`，否则等于把九档参数套回七档），并 `-mtc=off -mtm=off -mta=off` 关掉时间戳，
   条目顺序取文件系统遍历，因此字节级可复现性不如 zip 严格；验体积与内容仍用 `verify --pack`；
 - `--format zip` 时保留确定性路径：所有条目 `date_time` 固定为 `2020-01-01 00:00:00`（`common.FIXED_TIME`）、
   目录 STORE、文件 deflate 6、`.exe/.com/.bat` 置 0755 其余 0644；
@@ -225,7 +227,7 @@ python -m build verify --pack --asset dist/out/<pack>.7z           # 校验产�
 多个档位包默认**并行**（`--jobs`，缺省取 `min(包数, 4)`）：每个包在独立子进程里走
 `assemble → config → 压缩 → 校验`，父进程按 `[包名]` 前缀转发日志。串行时三件套要
 15~20 分钟，几乎全花在两件事上——每个包都从零复制 615 MB 基础树再叠组件，以及
-`7z -mx=9` 的固实压缩；这两步互不独占同一份输入，所以并行能真正重叠。
+`7z -mx=7` 的固实压缩；这两步互不独占同一份输入，所以并行能真正重叠。
 组件下载/解压仍先**串行**预取（各档位共用基础包组件，同时解同一份缓存会互相踩），
 预取完才开始并行装配。单包失败会等其余包跑完后汇总，一次性报出失败包名。
 
