@@ -5,9 +5,9 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 帧倍增滤镜），额外带上 VapourSynth 运行时，以及本仓库自己维护的
 [K7sfunc fork](https://github.com/o5-null/K7sfunc)（在其上新增 `mod_playkit` 预设层与 `k7f_playkit` 前端）。
 
-`pre` 是预览分支：**只追最新，不做兼容性保证**。组件版本随时可能跳到当天的最新构建，
-出问题请对比 `BUILD_INFO.json` 里的版本组合。构建过程完全由 Python 脚本完成，产物是一个
-解压即用的目录（不打安装器、不写注册表、不发布 release）。
+目标是实现稳定和最新的前沿技术体验
+添加更高速的实时视频处理功能
+
 
 ## 包里有什么
 
@@ -30,21 +30,9 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 ## 快速开始
 
 1. 解压 7z（7-Zip 或兼容工具），进入 `mpv-playkit-pre-<版本>-windows-x64/`；
-2. `mpv.exe` 直接播放。VapourSynth 链路不需要额外配置：`portable.vs` 与 `python*._pth` 已就位，
-   `k7f_vs.lua` 会在首次运行时把 Python 定位写进 `%APPDATA%\vapoursynth\vapoursynth.toml`；
-3. 想用预设，在你自己的 `input.conf` 里加一条绑定（脚本默认不占用任何按键）：
+2. `mpv.exe` 直接播放。installer文件夹中提供了直接设为媒体文件默认打开方式的脚本
 
-```conf
-Ctrl+Shift+p  script-binding k7f_playkit/toggle
-Ctrl+Shift+o  script-binding k7f_playkit/off
-```
-
-也可以改 `portable_config/script-opts/k7f_playkit.conf` 里的 `preset`，然后在控制台执行
-`script-message-to k7f_playkit apply`。
-
-> GPU 算法用的模型；`vsdlssg` 全量包不带，下 `vs-mlrt` 全量包后
-> cugan / dpir 去块 / 通用超分 / ArtCNN / RIFE / DRBA 六族即可用。
-> 默认的 `auto` 预设会按顺序逐级回退，缺模型只会降级并在 OSD 提示，不会黑屏。
+> GPU 算法用的模型；`vsdlssg` 全量包自带4个vs插件和1个原生滤镜
 
 ## 两个全量包
 
