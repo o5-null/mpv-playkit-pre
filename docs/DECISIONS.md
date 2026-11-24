@@ -463,6 +463,19 @@
   `portable_config/menu.conf` 与任何手写的 stage 配置都必须带那个 `\t`，否则 `check()`
   拦下。`menu-data` 里会多出一条 `# <<< playkit-config:vf`（hidden），无害。
 
+## 29. 帧生成 DLL 改用 vs-framegen 0.2.1 发行资产，不再需要本地覆盖件（2026-11-24）
 
-
-
+- **决策**：`sources.lock.json` 里 5 条指向 vs-framegen 发行 zip 的组件（`vs-framegen-dlls` 与
+  `vsdlssg/engine-dlss45`、`engine-xessfg`、`engine-vfg`、`engine-fsr4`）一起升到 `0.2.1`
+  （`https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip`，
+  253831573 B，`sha256 578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5`）。
+  构建不再需要 `PLAYKIT_LOCAL_VS_FRAMEGEN_DLLS`。
+- **原因**：0.2.0 的 `vvfg.dll` 在同一进程里反复初始化会崩（`0xC0000005`，事件日志
+  `出错模块名称: unknown`、`偏移 0x0`）。根因在 `vs-dlssg/src/vfg_session.cpp`：`patchIat`
+  把 `nvcuda.dll` 的 `cuDeviceGetAttribute` / `cuModuleLoadData` 换成指向本 DLL 的钩子，
+  真函数指针只存在本 DLL 的静态量里；VapourSynth 销毁环境时会卸载插件 DLL，同基址重载后静态量
+  归零、IAT 仍指向旧钩子 → 钩子空调用。0.2.1 用 `pinPluginImage()`（`GET_MODULE_HANDLE_EX_FLAG_PIN`
+  加 `std::call_once`）钉住映像，并在 `patchIat` 开头无条件重新 `GetProcAddress` 取真指针。
+- **代价 / 边界**：5 条 lock 指向同一个 253.8 MB 资产（各组件用 `include` 或 `exclude` 各取所需），
+  下载只有一份缓存；发行包内 `vs-plugins/fsr4/shader_cache` 已剔除（测试跑出来的 vkd3d 运行时
+  缓存，不该进发行包）。
