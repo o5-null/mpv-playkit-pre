@@ -465,8 +465,8 @@
 
 ## 29. 帧生成 DLL 改用 vs-framegen 0.2.1 发行资产，不再需要本地覆盖件（2026-11-24）
 
-- **决策**：`sources.lock.json` 里 5 条指向 vs-framegen 发行 zip 的组件（`vs-framegen-dlls` 与
-  `vsdlssg/engine-dlss45`、`engine-xessfg`、`engine-vfg`、`engine-fsr4`）一起升到 `0.2.1`
+- **决策**：`sources.lock.json` 里指向 vs-framegen 发行 zip 的组件（`vs-framegen-dlls` 与
+  `vsdlssg/engine-framegen`）一起升到 `0.2.1`
   （`https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip`，
   253831573 B，`sha256 578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5`）。
   构建不再需要 `PLAYKIT_LOCAL_VS_FRAMEGEN_DLLS`。
@@ -476,6 +476,20 @@
   真函数指针只存在本 DLL 的静态量里；VapourSynth 销毁环境时会卸载插件 DLL，同基址重载后静态量
   归零、IAT 仍指向旧钩子 → 钩子空调用。0.2.1 用 `pinPluginImage()`（`GET_MODULE_HANDLE_EX_FLAG_PIN`
   加 `std::call_once`）钉住映像，并在 `patchIat` 开头无条件重新 `GetProcAddress` 取真指针。
-- **代价 / 边界**：5 条 lock 指向同一个 253.8 MB 资产（各组件用 `include` 或 `exclude` 各取所需），
-  下载只有一份缓存；发行包内 `vs-plugins/fsr4/shader_cache` 已剔除（测试跑出来的 vkd3d 运行时
-  缓存，不该进发行包）。
+- **代价 / 边界**：`vs-framegen-dlls` 与 `vsdlssg/engine-framegen` 两条 lock 指向同一个
+  253.8 MB 资产（前者取顶层四个 DLL，后者用 `include` 取四棵运行时目录），`fetch` 的缓存按
+  sha256 命名，所以只下一份、只存一份；发行包内 `vs-plugins/fsr4/shader_cache` 已剔除（测试跑出来的
+  vkd3d 运行时缓存，不该进发行包）。
+
+## 30. 档位包的四颗引擎合并成一个 `engine-framegen` 组件（2026-11-24）
+
+- **决策**：`manifests/packs/vsdlssg.yml` 里原来的 `engine-dlss45`、`engine-xessfg`、`engine-vfg`、
+  `engine-fsr4` 四条组件合并为一条 `engine-framegen`（`include` 四棵目录、`provides` 取并集 15 条），
+  lock 里对应的 `vsdlssg/engine-*` 四条记录合并为 `vsdlssg/engine-framegen` 一条（36 → 33 个组件）。
+- **原因**：`9dd2d60` 之后四颗引擎已经共用同一个发行 zip，但组件仍是四条、lock 仍是四条，而
+  `build/fetch.py` 的缓存按**组件 id** 分目录（`downloads/<id>/<文件名>`），于是同一个 253 MB 资产
+  在一次 `pack --name vsdlssg` 里被下载 4 次（加上基础包那条共 5 份、约 1.27 GB）。合并组件同时把
+  缓存改成按 sha256 命名（`downloads/_sha256/<hash>/<文件名>`），彻底消掉重复下载。
+- **代价 / 边界**：四颗引擎不再能各自单独 pin 版本——它们本来就在同一个 zip 里，分开 pin 只会制造
+  不一致；`install_archive` 的 `include` 白名单仍逐条列出四棵目录，将来资产里新增引擎目录需要手工加。
+

@@ -132,8 +132,10 @@ def fetch(comp: dict, force: bool = False) -> Path:
     if local is not None:
         common.log(f"本地覆盖 {comp['id']}: {local.name}（跳过下载与哈希校验）")
         return local
-    dest = common.DOWNLOAD_DIR / comp["id"].replace("/", "__") / asset_filename(comp)
+    # 缓存按 sha256 定位：多个组件指向同一资产（比如四个引擎共用 vs-framegen 的合并 zip）
+    # 时只存一份、只下一次，而不是每个 id 目录各存一份 253 MB 的副本。
     expected = comp["sha256"].strip().lower()
+    dest = common.DOWNLOAD_DIR / "_sha256" / expected / asset_filename(comp)
     if dest.exists() and not force:
         actual = common.sha256_file(dest)
         if actual == expected:

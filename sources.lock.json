@@ -219,28 +219,7 @@
       "size": 10909304,
       "pinned_at": "2026-11-20T18:08:48Z"
     },
-    "vsdlssg/engine-dlss45": {
-      "version": "0.2.1",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip",
-      "sha256": "578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5",
-      "size": 253831573,
-      "pinned_at": "2026-11-24T01:35:44Z"
-    },
-    "vsdlssg/engine-fsr4": {
-      "version": "0.2.1",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip",
-      "sha256": "578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5",
-      "size": 253831573,
-      "pinned_at": "2026-11-24T01:35:45Z"
-    },
-    "vsdlssg/engine-vfg": {
-      "version": "0.2.1",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip",
-      "sha256": "578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5",
-      "size": 253831573,
-      "pinned_at": "2026-11-24T01:35:44Z"
-    },
-    "vsdlssg/engine-xessfg": {
+    "vsdlssg/engine-framegen": {
       "version": "0.2.1",
       "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip",
       "sha256": "578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5",

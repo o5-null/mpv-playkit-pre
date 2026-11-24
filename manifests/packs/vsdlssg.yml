@@ -27,66 +27,35 @@ summary: >-
   aji（AnimeJaNai）插帧暂缓，见文末组件。
 
 components:
-  # o5-null/vs-framegen v0.2.0 的发行 zip 现在是一个合并包（四个 DLL + dlss45/xessfg/vfg/fsr4），
-  # 所以两颗引擎都指向同一资产、用 include 各取一棵子树（下载走相同的缓存文件）。
+  # o5-null/vs-framegen v0.2.0 起发行包是一个合并 zip（四个 DLL + dlss45/xessfg/vfg/fsr4），
+  # 本档只要四棵运行时目录，全在这一个组件里装；四个 DLL 由基础包的 `vs-framegen-dlls`
+  # 负责（同一个资产，`fetch` 的缓存按 sha256 命名，两处共用一份下载）。
   # 注意 dlssg_sm86/logs/.gitkeep 不能丢：日志目录不存在时引擎会静默失败。
-  - id: engine-dlss45
+  - id: engine-framegen
     kind: archive
-    summary: DLSS-G 4.5 NGX 引擎（含 sm86 后端）
+    summary: 帧生成引擎运行时（DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / AMD FSR4）
     upstream: o5-null/vs-framegen
     license: MIT
     extract: zip
     install_to: .
     include:
       - vs-plugins/dlss45
+      - vs-plugins/xessfg
+      - vs-plugins/vfg
+      - vs-plugins/fsr4
     provides:
       - vs-plugins/dlss45/dlssg2f.exe
       - vs-plugins/dlss45/dlssg_sm86.ini
       - vs-plugins/dlss45/version.dll
       - vs-plugins/dlss45/dlssg_sm86/logs/.gitkeep
       - vs-plugins/dlss45/dlssg_sm86/runtime/nvngx_dlssg.dll
-
-  - id: engine-xessfg
-    kind: archive
-    summary: XeSS-FG 的 NGX 引擎（含 sm86 后端）
-    upstream: o5-null/vs-framegen
-    license: MIT
-    extract: zip
-    install_to: .
-    include:
-      - vs-plugins/xessfg
-    provides:
       - vs-plugins/xessfg/dlssg2f.exe
       - vs-plugins/xessfg/version.dll
       - vs-plugins/xessfg/dlssg_sm86/logs/.gitkeep
       - vs-plugins/xessfg/dlssg_sm86/runtime/nvngx_dlssg.dll
-
-  # vvfg 插件用的 NVIDIA 帧生成运行时（~210MB），不带它 vvfg.dll 起不来。
-  - id: engine-vfg
-    kind: archive
-    summary: NVIDIA VFG 运行时（NVCVImage / NVVideoEffects / nvVFXVideoFrameGeneration）
-    upstream: o5-null/vs-framegen
-    license: MIT
-    extract: zip
-    install_to: .
-    include:
-      - vs-plugins/vfg
-    provides:
       - vs-plugins/vfg/nvVFXVideoFrameGeneration.dll
       - vs-plugins/vfg/NVVideoEffects.dll
       - vs-plugins/vfg/cudart64_12.dll
-
-  # vfsr4 插件用的 FSR 帧生成运行时（vkd3d-proton 转 D3D12 + AMD FidelityFX）。
-  - id: engine-fsr4
-    kind: archive
-    summary: AMD FSR 帧生成运行时（FidelityFX + vkd3d-proton 桥）
-    upstream: o5-null/vs-framegen
-    license: MIT
-    extract: zip
-    install_to: .
-    include:
-      - vs-plugins/fsr4
-    provides:
       - vs-plugins/fsr4/amd_fidelityfx_framegeneration_dx12.dll
       - vs-plugins/fsr4/smv_fsrfg_bridge.dll
       - vs-plugins/fsr4/smv_vkd3d_d3d12.dll
