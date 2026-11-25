@@ -493,3 +493,18 @@
 - **代价 / 边界**：四颗引擎不再能各自单独 pin 版本——它们本来就在同一个 zip 里，分开 pin 只会制造
   不一致；`install_archive` 的 `include` 白名单仍逐条列出四棵目录，将来资产里新增引擎目录需要手工加。
 
+## 31. vpy 侧的参数桥并入 K7sfunc，`MEMC_*.vpy` 只留用户选项（2026-11-25）
+
+- **决策**：删除 `mpv/portable_config/vs/k7f_bridge.py`，逻辑搬到 K7sfunc 的
+  `src/k7sfunc/mod_vpy.py`（fork `1.9.0+pre.8`）：`FRAMEGEN_VPY` 一次调用负责 user_data/
+  环境变量解析与钳制、插件定位（`VPY_LOAD_PLUGIN`）、补帧主流程（预缩 / YUV 直通 /
+  帧率兜底）和上行报告（`VPY_PUBLISH`）。四个脚本从 147–157 行降到 39–42 行。
+- **原因**：四个 vpy 各自抄了五段同样的样板（sys.path + `import k7f_bridge`、手写
+  `_parse_user_data`、环境变量覆盖、user_data 覆盖、插件候选列表），改一处要同步四遍；
+  而 K7 的其它 vpy 本来就是"用户选项 + 一次 `k7f.*` 调用"的写法。顺带把 `vxessfg` 的
+  倍率表改成只放行 2（与上一轮 `a01dad1` 的脚本钳制对齐，模块层之前仍写着 2–4）。
+- **代价 / 边界**：脚本不能再单独拷出 `vs/` 目录运行（现在依赖 `import k7sfunc`）；
+  参数键名与 `<脚本>.k7f.json` 格式没变，`k7f_bridge.lua` / `k7f_vpypar.lua` 不用改，
+  但 `k7f_vpypar.lua` 的参数表注释已指向 `FRAMEGEN_VPY_OPTIONS`。`vs/` 是整目录复制，
+  删掉 `k7f_bridge.py` 后下一次构建自然不再带上它，不需要动 `components.yml`。
+
