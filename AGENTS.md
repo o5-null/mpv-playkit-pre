@@ -18,18 +18,20 @@
 | `docs/` | `BUILD.md` 构建链、`DECISIONS.md` 决策与已知坑、`TOOLKIT.md` K7sfunc 预设层 |
 | `.work/`、`dist/` | 临时解包与中间 stage，均已 gitignore；交付归档与下载缓存在共享目录（见下） |
 
-## 统一工作区（repos\）
+## 共享产物（repos\）
 
-本仓库与另外几个子仓库统一放在 `E:\code\dlssg-vfi\repos\` 下，共享缓存与产物放在仓库之外的：
+本仓库与另外几个子仓库都在 `E:\code\dlssg-vfi\` 根下各自独立，**只有**构建产出的交付归档与
+下载缓存放进根下的 `repos\`：
 
 | 路径 | 说明 |
 | --- | --- |
 | `repos\dist\` | 交付归档（基础包、两个档位包、`*.sha256`、外部 release 资产副本）；`OUT_DIR` 默认指这里 |
 | `repos\.cache\downloads\` | 下载缓存，所有子仓库共用一份；`DOWNLOAD_DIR` 默认指这里 |
-| `mpv-playkit\dist\stage\` | 中间 stage（单个 0.6–1.7 GB），仍留在仓库内 |
+| `<repo>\dist\stage\` | 中间 stage（单个 0.6–1.7 GB），留在仓库内 |
 
-`build/common.py` 探测规则：`PLAYKIT_SHARED_ROOT` 显式指定优先，否则父目录名为 `repos` 才认。
-两者都不满足（CI checkout、仓库被单独拷走）时全部退回仓库内 `.work\downloads` / `dist\out`，
+`build/common.py` 探测规则：`PLAYKIT_SHARED_ROOT` 显式指定优先；否则父目录下存在
+`repos\dist` 或 `repos\.cache` 就用它（兼容旧布局 `<root>\repos\<repo>`）。
+都不满足（CI checkout、仓库被单独拷走）时全部退回仓库内 `.work\downloads` / `dist\out`，
 行为与旧版一致。`build/fetch.py` 在下载前还会看 `repos\dist` 里有没有同名且 sha256 一致的归档，
 命中就硬链接进缓存——刚发过 release 的资产不必再下一次。
 
@@ -39,7 +41,7 @@ stage 在打包后**不会被删**：`ci` / `all` / `pack` 结束后 `dist\stage
 
 ## 邻近仓库
 
-本仓库在 `E:\code\dlssg-vfi\repos\` 下，旁边是同一套东西的源码，改 K7sfunc 功能时直接用：
+本仓库在 `E:\code\dlssg-vfi\` 根下，旁边是同一套东西的源码，改 K7sfunc 功能时直接用：
 
 - `..\k7sfunc` — K7sfunc 的 fork（PLAYKIT 预设、`RIFE_AJI` 等算子都在这里），push 后按 commit 钉进 `sources.lock.json`
 - `..\vsaji` — aji 插帧引擎的 VS 插件与构建脚本，产物 `dist\aji\` 决定 `vs-plugins\aji\` 里放什么

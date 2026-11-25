@@ -85,9 +85,9 @@ CI 里用 `PLAYKIT_VERSION`。
 `C:\software\7-Zip`，注册表里已登记）。`python -m build ... --format zip` 回退到旧行为。
 `<产物目录>/<name>.sha256` 两种格式都有（产物目录默认是共享的 `repos/dist`，见下文"目录约定"）。
 
-## 目录约定（本地统一工作区）
+## 目录约定（本地共享产物）
 
-本地把相关子仓库统一放在 `E:\code\dlssg-vfi\repos\` 下，构建缓存与交付归档因此挪出仓库：
+本地各子仓库都在 `E:\code\dlssg-vfi\` 根下，构建缓存与交付归档统一放进根下的 `repos\`：
 
 | 常量 | 有共享根时 | 无共享根时（CI、单独拷走） |
 | --- | --- | --- |
@@ -95,10 +95,10 @@ CI 里用 `PLAYKIT_VERSION`。
 | `OUT_DIR` | `repos\dist` | `<repo>\dist\out` |
 | `STAGE_ROOT` | `<repo>\dist\stage`（始终留在仓库内，单包 0.6–1.7 GB） | 同左 |
 
-共享根判定在 `build/common.py::_shared_root()`：`PLAYKIT_SHARED_ROOT` 显式指定优先，
-否则仅在仓库父目录名为 `repos` 时启用。下载顺序是「缓存命中 → `repos/dist` 里同名且
-sha256 一致的归档（硬链接进缓存）→ 真正下载」，所以刚作为 release 资产发出去的 zip
-不必再下一次。CI 不设这两个变量，行为与加这条约定之前完全一致。
+共享根判定在 `build/common.py::_shared_root()`：`PLAYKIT_SHARED_ROOT` 显式指定优先；
+否则父目录下存在 `repos\dist` 或 `repos\.cache` 就用它（也兼容 `<root>\repos\<repo>` 的旧布局）。
+下载顺序是「缓存命中 → `repos/dist` 里同名且 sha256 一致的归档（硬链接进缓存）→ 真正下载」，
+所以刚作为 release 资产发出去的 zip 不必再下一次。CI 不设这两个变量，行为与加这条约定之前完全一致。
 
 ### 打包后 stage 一律保留（手动测试用）
 

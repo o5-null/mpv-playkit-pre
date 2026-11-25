@@ -567,21 +567,24 @@
   顶层四个 DLL，`engine-framegen` 用 `include` 取四棵运行时目录。`manifests/config.yml` 里四个
   预设的标题同时由 `DLC-vsNV` 改成 `DLC-vsFG`，与发行包名一致。
 
-## 34. 子仓库与构建产物统一到 `repos\`，缓存与归档移出仓库（2026-11-26）
+## 34. 构建产物与下载缓存统一到 `repos\`（子仓库留在根下）（2026-11-26）
 
-- **决策**：本机把同一套相关的子仓库统一放到 `E:\code\dlssg-vfi\repos\`（`mpv-playkit` 本体、
-  `k7sfunc`、`k7sfunc-wiki`、`mpv-src`、`ngxsdk`、`vsaji`）。`build/common.py` 新增
-  `_shared_root()`：`PLAYKIT_SHARED_ROOT` 显式指定优先，否则仓库父目录名为 `repos` 才认。
-  命中时 `DOWNLOAD_DIR = repos\.cache\downloads`、`OUT_DIR = repos\dist`；`STAGE_ROOT` 仍是
-  `<repo>\dist\stage`（单包 0.6–1.7 GB，不放共享区）。`build/fetch.py` 在下载前多一步：
-  `repos\dist` 里有同名且 sha256 一致的归档就 `os.link` 硬链接进缓存复用。
+- **决策**：本机各子仓库（`mpv-playkit` 本体、`k7sfunc`、`k7sfunc-wiki`、`mpv-src`、`ngxsdk`、
+  `vsaji`）仍放在 `E:\code\dlssg-vfi\` 根下各自独立；**只有**构建产出的交付归档与下载缓存
+  收进根下的 `repos\`。`build/common.py` 新增 `_shared_root()`：`PLAYKIT_SHARED_ROOT` 显式指定
+  优先；否则仓库父目录下存在 `repos\dist` 或 `repos\.cache` 就用它（并兼容旧布局
+  `<root>\repos\<repo>`）。命中时 `DOWNLOAD_DIR = repos\.cache\downloads`、`OUT_DIR = repos\dist`；
+  `STAGE_ROOT` 仍是 `<repo>\dist\stage`（单包 0.6–1.7 GB，不放共享区，打包后保留供手测）。
+  `build/fetch.py` 在下载前多一步：`repos\dist` 里有同名且 sha256 一致的归档就 `os.link`
+  硬链接进缓存复用。
 - **原因**：同一份 253.8 MB 帧生成资产、同一批 vsrife/models 组件在多个仓库各自的
   `.work\downloads` 里各存一份；产物又散落在各仓库 `dist\out`（本机 `mpv-playkit\dist\out`
-  累积了 8 组历史 7z）。用户要求"把所有子项目的构建 zip 统一输出到一个文件夹"，
+  累积了 8 组历史 7z）。用户要求"子仓库不要收进 repos，只有构建的 release 要"，
   缓存也优先从共享处查找。
-- **代价 / 边界**：不装共享根（CI checkout、仓库被单独拷走、父目录改名）时 `DOWNLOAD_DIR` /
-  `OUT_DIR` 完全退回旧路径，workflow 与 actions/cache 不用改；`repos\dist` 里的同名旧版本
-  靠 sha256 判定，不匹配就照常下载，不会误用；本地 `.work\downloads` 从此闲置（可直接删）。
+- **代价 / 边界**：不装共享根（CI checkout、仓库被单独拷走、父目录下没有 `repos`）时
+  `DOWNLOAD_DIR` / `OUT_DIR` 完全退回旧路径，workflow 与 actions/cache 不用改；
+  `repos\dist` 里的同名旧版本靠 sha256 判定，不匹配就照常下载，不会误用；
+  本地 `.work\downloads` 从此闲置（可直接删）。
   搬目录踩过的坑：watcher 持有句柄时 `Move-Item` 会退化成复制+删除并在 `.git` 上报
   `Access is denied`，同卷搬目录要直接用 `move`（改名）或 `robocopy /MOVE`。
 

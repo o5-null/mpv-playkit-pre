@@ -27,18 +27,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _shared_root() -> Path | None:
-    """统一工作区根（本地叫 repos\\）：各子仓库都在 <root>/<repo> 下。
+    """共享产物根（本地是工作区根下的 repos\\），子仓库本身不在其内。
 
     命中时下载缓存与交付归档放到仓库之外，多个仓库共用一份：
-    `<root>/.cache/downloads`、`<root>/dist`。`PLAYKIT_SHARED_ROOT` 显式指定优先；
-    否则只有父目录名为 `repos` 才认（避免把任意上级目录当成共享区）。
-    CI 上 checkout 路径两者都不满足，一切退回仓库内 `.work` / `dist`，行为与旧版一致。
+    `<root>/.cache/downloads`、`<root>/dist`。判定顺序：
+
+    1. `PLAYKIT_SHARED_ROOT` 显式指定；
+    2. 仓库的父目录下存在 `repos`（`<parent>/repos/dist` 或 `.cache`）就用它；
+    3. 仓库自身位于 `<root>/repos/<repo>` 时用 `<root>/repos`（旧布局兼容）。
+
+    CI 上 checkout 路径三者都不满足，一切退回仓库内 `.work` / `dist`，行为与旧版一致。
     """
     explicit = os.environ.get("PLAYKIT_SHARED_ROOT", "").strip()
     if explicit:
         path = Path(explicit).expanduser().resolve()
         return path if path.is_dir() else None
-    return ROOT.parent if ROOT.parent.name == "repos" else None
+    if ROOT.parent.name == "repos":
+        return ROOT.parent
+    sibling = ROOT.parent / "repos"
+    if sibling.is_dir() and any((sibling / sub).is_dir() for sub in ("dist", ".cache")):
+        return sibling
+    return None
 
 
 SHARED_ROOT = _shared_root()
