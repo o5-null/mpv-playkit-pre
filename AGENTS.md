@@ -16,11 +16,26 @@
 | `portable_config/` | **本地维护**的基准配置（取自 mpv-lazy 最后发版）；只有 `shaders/` 由 `build.sync` 跟随上游整目录替换 |
 | `installer/` | 上游安装脚本，已冻结：不再同步、也不进包（保留只为留档）。例外：补帧滤镜跑分三件套（`mpv-补帧滤镜跑分.bat` / `mpv-FilterBench.conf` / `mpv_filter_bench.lua`）由 `bench-scripts` 组件打进包的 `installer/` |
 | `docs/` | `BUILD.md` 构建链、`DECISIONS.md` 决策与已知坑、`TOOLKIT.md` K7sfunc 预设层 |
-| `.work/`、`dist/` | 下载缓存与构建产物，均已 gitignore |
+| `.work/`、`dist/` | 临时解包与中间 stage，均已 gitignore；交付归档与下载缓存在共享目录（见下） |
+
+## 统一工作区（repos\）
+
+本仓库与另外几个子仓库统一放在 `E:\code\dlssg-vfi\repos\` 下，共享缓存与产物放在仓库之外的：
+
+| 路径 | 说明 |
+| --- | --- |
+| `repos\dist\` | 交付归档（基础包、两个档位包、`*.sha256`、外部 release 资产副本）；`OUT_DIR` 默认指这里 |
+| `repos\.cache\downloads\` | 下载缓存，所有子仓库共用一份；`DOWNLOAD_DIR` 默认指这里 |
+| `mpv-playkit\dist\stage\` | 中间 stage（单个 0.6–1.7 GB），仍留在仓库内 |
+
+`build/common.py` 探测规则：`PLAYKIT_SHARED_ROOT` 显式指定优先，否则父目录名为 `repos` 才认。
+两者都不满足（CI checkout、仓库被单独拷走）时全部退回仓库内 `.work\downloads` / `dist\out`，
+行为与旧版一致。`build/fetch.py` 在下载前还会看 `repos\dist` 里有没有同名且 sha256 一致的归档，
+命中就硬链接进缓存——刚发过 release 的资产不必再下一次。
 
 ## 邻近仓库
 
-本仓库在 `E:\code\dlssg-vfi\` 下，旁边是同一套东西的源码，改 K7sfunc 功能时直接用：
+本仓库在 `E:\code\dlssg-vfi\repos\` 下，旁边是同一套东西的源码，改 K7sfunc 功能时直接用：
 
 - `..\k7sfunc` — K7sfunc 的 fork（PLAYKIT 预设、`RIFE_AJI` 等算子都在这里），push 后按 commit 钉进 `sources.lock.json`
 - `..\vsaji` — aji 插帧引擎的 VS 插件与构建脚本，产物 `dist\aji\` 决定 `vs-plugins\aji\` 里放什么
@@ -33,10 +48,10 @@
 ```bash
 pip install -r requirements.txt        # 仅构建期需要 PyYAML
 python -m build ci                     # 本地复现 CI：fetch→assemble→smoke→package→verify（合并前门槛）
-python -m build all                    # 跳过 fetch，复用 .work/downloads 缓存
+python -m build all                    # 跳过 fetch，复用下载缓存
 python -m build smoke                  # 冒烟：python import / mpv --version / vf=vapoursynth
 python -m build verify --stage         # 校验 stage 结构/禁止项
-python -m build verify --asset dist/out/<zip>
+python -m build verify --asset ..\dist\<zip>   # 归档默认落在共享 dist\
 python -m build.pin --id <id> --url <url>   # 换版本唯一正确做法：下载→算 sha256→写 lock
 python -m build config --stage <dir> --pack <pack>   # 只对已有 stage 重算配置（改清单后的快检）
 python -m build.pin --list | --check | --dry-run
@@ -46,7 +61,7 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 ```
 
 没有单元测试、lint、typecheck；验证就等于 `smoke` + `verify`。完整构建会下载数百 MB
-（缓存于 `.work/downloads`；CI 的 actions/cache 以 lock 哈希为 key）——用户没要求就别顺手跑 `ci`。
+（缓存在 `repos\.cache\downloads`；CI 的 actions/cache 以 lock 哈希为 key）——用户没要求就别顺手跑 `ci`。
 
 ## 硬约束
 

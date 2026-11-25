@@ -37,7 +37,7 @@ manifests/config.yml       配置清单：VF 预设表 + 每个档位包启用�
 sources.lock.json          组件 pin（version / url / sha256 / size）
 build/common.py            路径、校验、解包、进程、版本号
 build/inputs.py            构建输入哈希（BUILD_INFO.inputs_hash）
-build/fetch.py             下载 + 哈希校验，缓存 .work/downloads/<id>/（codeload 走 curl 回退）
+build/fetch.py             下载 + 哈希校验，缓存 <缓存根>/_sha256/<哈希>/（codeload 走 curl 回退）
 build/assemble.py          装配 stage（组件 -> 配置清单生成 portable_config -> licenses）
 build/config.py            按 manifests/config.yml 生成预设区、裁掉未启用的 vpy
 portable_config/           本地维护的基准配置（mpv-lazy 最后发版；仅 shaders/ 跟随上游）
@@ -83,7 +83,22 @@ CI 里用 `PLAYKIT_VERSION`。
 要 7-Zip 才能在用户侧解压，构建机需要 `7z.exe`——查找顺序 `PLAYKIT_7Z` 环境变量 →
 `PATH` → 注册表 `SOFTWARE\7-Zip` → `C:\Program Files\7-Zip`（本机实测 winget 装在
 `C:\software\7-Zip`，注册表里已登记）。`python -m build ... --format zip` 回退到旧行为。
-`dist/out/<name>.sha256` 两种格式都有。
+`<产物目录>/<name>.sha256` 两种格式都有（产物目录默认是共享的 `repos/dist`，见下文"目录约定"）。
+
+## 目录约定（本地统一工作区）
+
+本地把相关子仓库统一放在 `E:\code\dlssg-vfi\repos\` 下，构建缓存与交付归档因此挪出仓库：
+
+| 常量 | 有共享根时 | 无共享根时（CI、单独拷走） |
+| --- | --- | --- |
+| `DOWNLOAD_DIR` | `repos\.cache\downloads` | `<repo>\.work\downloads` |
+| `OUT_DIR` | `repos\dist` | `<repo>\dist\out` |
+| `STAGE_ROOT` | `<repo>\dist\stage`（始终留在仓库内，单包 0.6–1.7 GB） | 同左 |
+
+共享根判定在 `build/common.py::_shared_root()`：`PLAYKIT_SHARED_ROOT` 显式指定优先，
+否则仅在仓库父目录名为 `repos` 时启用。下载顺序是「缓存命中 → `repos/dist` 里同名且
+sha256 一致的归档（硬链接进缓存）→ 真正下载」，所以刚作为 release 资产发出去的 zip
+不必再下一次。CI 不设这两个变量，行为与加这条约定之前完全一致。
 
 ## 可复现性
 
@@ -221,7 +236,7 @@ python -m build.pin --pack vsdlssg --id engine-framegen --url <url>  # 钉版本
 python -m build pack --name vsdlssg                               # 只打一个
 python -m build pack                                              # 打全部（默认并行）
 python -m build pack --jobs 1                                     # 串行，便于看单包日志
-python -m build verify --pack --asset dist/out/<pack>.7z           # 校验产物（7z 或 zip 都收）
+python -m build verify --pack --asset ..\dist\<pack>.7z           # 校验产物（7z 或 zip 都收）
 ```
 
 多个档位包默认**并行**（`--jobs`，缺省取 `min(包数, 4)`）：每个包在独立子进程里走
@@ -284,8 +299,8 @@ PACK_INFO.json                             包名、组件清单、lock_digest
 （退出码 3 = 上游无更新），有变化就用 bot 身份提交 `chore: 同步上游 shaders`。
 同步范围只有 `portable_config/shaders/`——基准配置的其余部分本地维护，不再跟随上游。
 
-缓存策略：`actions/cache` 存 `.work/downloads`，key 用 `sources.lock.json` 的哈希——
-lock 一变缓存就失效，避免拿到旧资产。
+缓存策略：`actions/cache` 存 `.work/downloads`（CI 上没有共享工作区，缓存根就是这里），
+key 用 `sources.lock.json` 的哈希——lock 一变缓存就失效，避免拿到旧资产。
 
 ## 失败排查
 

@@ -551,3 +551,37 @@
   归一化成 `_`，`--msg-level` 前缀与脚本求值名要用下划线。包内中文文件名依赖 zip 的 UTF-8 标记，
   老解压工具可能显示成乱码（与 installer 既有脚本风格一致，暂不改名）。
 
+## 33. 帧生成资产升到 vs-framegen 0.2.2、fork 钉到 1.9.0+pre.9（2026-11-26）
+
+- **决策**：`sources.lock.json` 里 `vs-framegen-dlls` 与 `vsdlssg/engine-framegen` 一起升到 `0.2.2`
+  （`https://github.com/o5-null/vs-framegen/releases/download/v0.2.2/vs-framegen-0.2.2.zip`，
+  253832410 B，`sha256 bfa079362644a532b15be7a1c8796c653f9c7edbfd5d53f0db5e341c8038d289`）；
+  `k7sfunc` 钉到 `83a830f`（`1.9.0+pre.9`，codeload tar.gz，`sha256 fa619e8bbdbc584d5dd4f69540717bbcde658546bb58d3a1ac365008fe3ed3f1`）。
+- **原因**：0.2.2 让桥路径复用上一对的末帧当下一对的 seed（`generateTexturesMulti()` 的
+  `needSeed` 判据 `lastPairIndex + 1 == pairIndex`），1080p 实测每对省掉约 9.5 ms 的 seed evaluate
+  （桥内 process 中位约 38.6 ms/对）；同版还有 VVFG 默认档改 medium、同一对中间帧流水化
+  （1080p medium −26%）、YUV full range 偏品红修复。`1.9.0+pre.9` 相对 pre.8 只多一个门控的
+  `[vpy-debug]` 探针（`mod_vpy` 打 stage 与逐帧耗时），用来核对 `FRAMEGEN_VPY` 的实际开销。
+- **代价 / 边界**：DLL 侧行为有变化（seed 省略、档位表），按档位包重跑预设时要以 0.2.2 为准；
+  两条 lock 仍指向同一个 253.8 MB 资产，缓存按 sha256 命名所以只留一份；`vs-framegen-dlls` 取
+  顶层四个 DLL，`engine-framegen` 用 `include` 取四棵运行时目录。`manifests/config.yml` 里四个
+  预设的标题同时由 `DLC-vsNV` 改成 `DLC-vsFG`，与发行包名一致。
+
+## 34. 子仓库与构建产物统一到 `repos\`，缓存与归档移出仓库（2026-11-26）
+
+- **决策**：本机把同一套相关的子仓库统一放到 `E:\code\dlssg-vfi\repos\`（`mpv-playkit` 本体、
+  `k7sfunc`、`k7sfunc-wiki`、`mpv-src`、`ngxsdk`、`vsaji`）。`build/common.py` 新增
+  `_shared_root()`：`PLAYKIT_SHARED_ROOT` 显式指定优先，否则仓库父目录名为 `repos` 才认。
+  命中时 `DOWNLOAD_DIR = repos\.cache\downloads`、`OUT_DIR = repos\dist`；`STAGE_ROOT` 仍是
+  `<repo>\dist\stage`（单包 0.6–1.7 GB，不放共享区）。`build/fetch.py` 在下载前多一步：
+  `repos\dist` 里有同名且 sha256 一致的归档就 `os.link` 硬链接进缓存复用。
+- **原因**：同一份 253.8 MB 帧生成资产、同一批 vsrife/models 组件在多个仓库各自的
+  `.work\downloads` 里各存一份；产物又散落在各仓库 `dist\out`（本机 `mpv-playkit\dist\out`
+  累积了 8 组历史 7z）。用户要求"把所有子项目的构建 zip 统一输出到一个文件夹"，
+  缓存也优先从共享处查找。
+- **代价 / 边界**：不装共享根（CI checkout、仓库被单独拷走、父目录改名）时 `DOWNLOAD_DIR` /
+  `OUT_DIR` 完全退回旧路径，workflow 与 actions/cache 不用改；`repos\dist` 里的同名旧版本
+  靠 sha256 判定，不匹配就照常下载，不会误用；本地 `.work\downloads` 从此闲置（可直接删）。
+  搬目录踩过的坑：watcher 持有句柄时 `Move-Item` 会退化成复制+删除并在 `.git` 上报
+  `Access is denied`，同卷搬目录要直接用 `move`（改名）或 `robocopy /MOVE`。
+

@@ -1,6 +1,7 @@
 """装配 stage 目录。
 
-装配顺序：先按组件 kind 安装（下载缓存在 .work/downloads），再跑组件声明的
+装配顺序：先按组件 kind 安装（下载缓存在共享根 `repos/.cache/downloads`，无共享根时在
+`.work/downloads`），再跑组件声明的
 后处理（copies / python_pth），最后铺 portable_config、许可与 BUILD_INFO。
 
 stage 最终布局（相对包根）：

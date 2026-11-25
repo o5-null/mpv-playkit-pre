@@ -1,7 +1,9 @@
 """下载组件并做 SHA-256 二次校验。
 
-缓存位于 .work/downloads/<id>/<文件名>，命中且哈希一致时直接复用。
-支持 HTTP_PROXY / HTTPS_PROXY 环境变量（urllib 默认读取）。
+缓存按 sha256 定位到 `<缓存根>/_sha256/<哈希>/<文件名>`：本地统一工作区里缓存根是
+`repos/.cache/downloads`（多仓库共用），否则是仓库内 `.work/downloads`。命中且哈希一致
+时直接复用；共享产物目录 `repos/dist` 里有同名且哈希一致的归档时也会先硬链接复用，
+不再下载。支持 HTTP_PROXY / HTTPS_PROXY 环境变量（urllib 默认读取）。
 个别站点（如 codeload）经代理会握手失败，此时回退到 curl 重试一次。
 """
 
@@ -126,6 +128,23 @@ def local_override(comp: dict) -> Path | None:
     return None
 
 
+def _shared_asset(comp: dict) -> Path | None:
+    """共享产物目录（repos/dist）里已有同名且哈希一致的归档时直接复用。
+
+    典型情形：某个合并 zip 刚作为 release 资产复制进共享 dist，构建不必再下几百 MB；
+    哈希不符（同名不同版）就当没命中，照常走下载。
+    """
+    dist = common.SHARED_DIST_DIR
+    if dist is None:
+        return None
+    candidate = dist / asset_filename(comp)
+    if not candidate.is_file():
+        return None
+    if common.sha256_file(candidate) != comp["sha256"].strip().lower():
+        return None
+    return candidate
+
+
 def fetch(comp: dict, force: bool = False) -> Path:
     """返回本地缓存路径，保证 SHA-256 与清单一致。"""
     local = local_override(comp)
@@ -143,6 +162,16 @@ def fetch(comp: dict, force: bool = False) -> Path:
             return dest
         common.log(f"缓存哈希不匹配，重新下载 {comp['id']}")
         dest.unlink()
+    shared = _shared_asset(comp) if not force else None
+    if shared is not None:
+        # 同卷硬链接即可，避免再复制一份；跨卷或不支持时退回复制
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        common.log(f"复用共享产物 {comp['id']}: {shared}")
+        try:
+            os.link(shared, dest)
+        except OSError:
+            shutil.copy2(shared, dest)
+        return dest
     _download(comp["url"], dest)
     actual = common.sha256_file(dest)
     if actual != expected:

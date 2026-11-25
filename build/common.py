@@ -24,15 +24,36 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _shared_root() -> Path | None:
+    """统一工作区根（本地叫 repos\\）：各子仓库都在 <root>/<repo> 下。
+
+    命中时下载缓存与交付归档放到仓库之外，多个仓库共用一份：
+    `<root>/.cache/downloads`、`<root>/dist`。`PLAYKIT_SHARED_ROOT` 显式指定优先；
+    否则只有父目录名为 `repos` 才认（避免把任意上级目录当成共享区）。
+    CI 上 checkout 路径两者都不满足，一切退回仓库内 `.work` / `dist`，行为与旧版一致。
+    """
+    explicit = os.environ.get("PLAYKIT_SHARED_ROOT", "").strip()
+    if explicit:
+        path = Path(explicit).expanduser().resolve()
+        return path if path.is_dir() else None
+    return ROOT.parent if ROOT.parent.name == "repos" else None
+
+
+SHARED_ROOT = _shared_root()
+SHARED_CACHE_DIR = SHARED_ROOT / ".cache" / "downloads" if SHARED_ROOT else None
+SHARED_DIST_DIR = SHARED_ROOT / "dist" if SHARED_ROOT else None
+
 MANIFEST_PATH = ROOT / "manifests" / "components.yml"
 PACKS_DIR = ROOT / "manifests" / "packs"
 LOCK_PATH = ROOT / "sources.lock.json"
 WORK_DIR = ROOT / ".work"
-DOWNLOAD_DIR = WORK_DIR / "downloads"
+DOWNLOAD_DIR = SHARED_CACHE_DIR or (WORK_DIR / "downloads")
 EXTRACT_DIR = WORK_DIR / "extract"
 DIST_DIR = ROOT / "dist"
-STAGE_ROOT = DIST_DIR / "stage"
-OUT_DIR = DIST_DIR / "out"
+STAGE_ROOT = DIST_DIR / "stage"          # 中间 stage 体积大，留在仓库内
+OUT_DIR = SHARED_DIST_DIR or (DIST_DIR / "out")   # 交付归档统一输出到共享 dist
 
 # 归档内所有时间戳/权限归一化到该时间，保证可复现
 FIXED_TIME = (2020, 1, 1, 0, 0, 0)
