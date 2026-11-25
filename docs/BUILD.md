@@ -100,6 +100,16 @@ CI 里用 `PLAYKIT_VERSION`。
 sha256 一致的归档（硬链接进缓存）→ 真正下载」，所以刚作为 release 资产发出去的 zip
 不必再下一次。CI 不设这两个变量，行为与加这条约定之前完全一致。
 
+### 打包后 stage 一律保留（手动测试用）
+
+`ci` / `all` / `pack` 都不会删除 stage：打包只是从 stage 读文件，结束后目录原样留着，
+可以直接跑 `dist\stage\<包名>\mpv.exe` 验证，不必先解 7z。档位包的 stage
+（`-vsdlssg` / `-vs-mlrt`）已经叠好本档组件，最接近用户拿到的包。
+
+- 同名重建会先删掉旧 stage 再重装（`build/pack.py:176`、`build/assemble.py:356`）；
+- 提交哈希变了目录名就变了，旧 stage 会一直堆着（单个 0.6–1.7 GB），
+  需要空间时手工删 `dist\stage\<旧包名>`；`dist\out` 里的历史归档同理。
+
 ## 可复现性
 
 - 默认 7z：`-mx=7 -m0=lzma2 -ms=on`（字典与匹配参数由档位自身决定，不再手写
