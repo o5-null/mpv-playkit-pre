@@ -508,3 +508,29 @@
   但 `k7f_vpypar.lua` 的参数表注释已指向 `FRAMEGEN_VPY_OPTIONS`。`vs/` 是整目录复制，
   删掉 `k7f_bridge.py` 后下一次构建自然不再带上它，不需要动 `components.yml`。
 
+
+## 32. 补帧滤镜跑分脚本：installer/ 开一个进包的例外（2026-11-25）
+
+- **决策**：新增 `installer/mpv-补帧滤镜跑分.bat` + `mpv-FilterBench.conf` +
+  `mpv_filter_bench.lua`，并在 `components.yml` 里加 `bench-scripts`（kind=repo-files）
+  把它们落到包的 `installer/` 下。**只放这三个文件**，installer/ 里其余上游脚本仍然冻结、
+  仍然不进包。
+- **原因**：用户拿了包想知道"我这台机器 VS 滤镜和原生滤镜哪个快、该开几倍"，就得有一个
+  双击可用的入口；跑分必须用真素材 + `hwdec=d3d11va`（合成源与 `vo=null` 都喂不出 D3D11 帧，
+  滤镜会静默不执行），也只能在分发包里跑（要 `mpv.com` / `portable_config` / `vs-plugins`），
+  所以脚本必须随包走。为了不动既有冻结约定，用独立组件精确放行三个文件，而不是解冻整个目录。
+- **做法要点**：
+  - 分辨率不换素材：`--vf=d3d11vpp=scale=W/SRCW,<补帧滤镜>` 在 D3D11 视频处理器里按宽度缩放，
+    1080p/2k/4k 只是倍率不同（2.35:1 片源 4k 档得到 3840x1632，符合"4K 宽度"）。
+  - 度量口径是**端到端呈现吞吐**：`--untimed --frames=600`，Lua 在 `playback-restart` 记时、
+    `end-file` 收尾，`out_fps = frames/elapsed`，`src_fps = out_fps/multi`，NGX 初始化时间不进分母。
+    呈现端必须 `d3d11-flip=no` + `d3d11-sync-interval=0`，否则被 vsync/DWM 压到 66fps。
+  - 交互：拖入/粘贴素材 → 提示分辨率（空=1080p 2k 4k 全测）→ 提示倍数（空=2）；
+    也给 `bat "视频" "1080p 4k" 6` 这种免交互用法，便于批处理。
+- **代价 / 边界**：数字含呈现端开销（比 `PLAYKIT_TIMING` 的 process 大得多，1080p 2× 原生约
+  34ms/对 vs 内部 5–8ms），是"能喂多快"而不是"滤镜占多少 CPU"；两种滤镜共用同一套 harness 才可比。
+  已知坑：`--include` 必须写 `=`；`--vf=` 里的 `~~/` 不展开，要写相对包根路径；
+  `--input=no` 会连 `--term-playing-msg` 一起关掉（探宽用不到它）；mpv 会把脚本名里的 `-`
+  归一化成 `_`，`--msg-level` 前缀与脚本求值名要用下划线。包内中文文件名依赖 zip 的 UTF-8 标记，
+  老解压工具可能显示成乱码（与 installer 既有脚本风格一致，暂不改名）。
+
