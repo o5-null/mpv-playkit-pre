@@ -512,9 +512,9 @@
 ## 32. 补帧滤镜跑分脚本：installer/ 开一个进包的例外（2026-11-25）
 
 - **决策**：新增 `installer/mpv-补帧滤镜跑分.bat` + `mpv-FilterBench.conf` +
-  `mpv_filter_bench.lua`，并在 `components.yml` 里加 `bench-scripts`（kind=repo-files）
-  把它们落到包的 `installer/` 下。**只放这三个文件**，installer/ 里其余上游脚本仍然冻结、
-  仍然不进包。
+  `mpv_filter_bench.lua`（另有出报告用的 `mpv_filter_bench_report.ps1`），并在 `components.yml`
+  里加 `bench-scripts`（kind=repo-files）把它们落到包的 `installer/` 下。**只放这四个文件**，
+  installer/ 里其余上游脚本仍然冻结、仍然不进包。
 - **原因**：用户拿了包想知道"我这台机器 VS 滤镜和原生滤镜哪个快、该开几倍"，就得有一个
   双击可用的入口；跑分必须用真视频文件（截图/合成源直接喂 `--vf` 时滤镜链建不起来，
   拿不到 D3D11 帧，滤镜会静默不执行），也只能在分发包里跑（要 `mpv.com` / `portable_config` / `vs-plugins`），
@@ -534,6 +534,16 @@
      （VS：`[vapoursynth] initialized.`；原生：`playkit: vdlssg bridge ready`），找不到就整段跳过。
      原因是滤镜初始化失败时 mpv 只是 `Disabling filter ...` 继续播，会跑出 1300+fps 的假数字。
      顺带一个坑：mpv 自身日志走 **stdout**（Lua 的 `print` 也在 stdout），要留完整日志得用 `--log-file=`。
+   - 跑完生成 `installer/report.txt`（系统 / CPU / 内存 / 显卡与驱动 / nvidia-smi / 播放器版本 +
+     测试条件 + 结果表），由 `installer/mpv_filter_bench_report.ps1` 写，UTF-8 **带 BOM**
+     （PS 5.1 读无 BOM 会按 ANSI，中文会乱）。它是第四个进包文件（同在 `bench-scripts` 里）。
+   - **VS 滤镜不走全局 toml**：直接 `set VSSCRIPT_PATH=%CD%\Lib\site-packages\vapoursynth\vsscript.dll`。
+     `vf_vapoursynth.c:819` 支持这个环境变量（`dlopen(getenv("VSSCRIPT_PATH"))`），而 site-packages
+     里那份 DLL 往上四层正好是包根，能自己找到 `python.exe` / `python3.dll`，不需要
+     `%APPDATA%\VapourSynth\vapoursynth.toml`。原因：本机 PATH 上的旧 `vapoursynth.exe config`
+     会把那份 toml 写成 2 字段（R82 要求 3 字段、第三个是 `python.exe` 的 mtime），
+     一旦被它重写，VS 滤镜就整段 `Failed to initialize VapourSynth VSScript library`。
+     也就是说跑分依赖的是**包内**的 VSScript，不动用户机器上的全局配置。
 - **代价 / 边界**：数字含呈现端开销（比 `PLAYKIT_TIMING` 的 process 大得多，1080p 2× 原生约
   34ms/对 vs 内部 5–8ms），是"能喂多快"而不是"滤镜占多少 CPU"；两种滤镜共用同一套 harness 才可比。
   已知坑：`--include` 必须写 `=`；`--vf=` 里的 `~~/` 不展开，要写相对包根路径；

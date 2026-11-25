@@ -290,7 +290,7 @@ components:
 
   # 补帧滤镜跑分脚本（vs 滤镜 / 原生滤镜两路吞吐对比）
   # 取自本仓库 installer/，落到包的 installer/ 下，双击即用。
-  # 注意：installer/ 里其余上游安装脚本仍然冻结、仍然不进包，这里只挑这三个文件。
+  # 注意：installer/ 里其余上游安装脚本仍然冻结、仍然不进包，这里只挑这四个文件。
   - id: bench-scripts
     kind: repo-files
     summary: 补帧滤镜跑分脚本（vs 滤镜 / 原生滤镜吞吐对比）
@@ -303,3 +303,5 @@ components:
         target: installer/mpv-FilterBench.conf
       - source: installer/mpv_filter_bench.lua
         target: installer/mpv_filter_bench.lua
+      - source: installer/mpv_filter_bench_report.ps1
+        target: installer/mpv_filter_bench_report.ps1

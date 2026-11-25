@@ -16,6 +16,12 @@ if not exist "!BENCH_LOGDIR!" mkdir "!BENCH_LOGDIR!" >nul 2>&1
 set "BENCH_VS=portable_config/vs/MEMC_DLSSG_NV.vpy"
 set "BENCH_DLL=vs-plugins/vdlssg.dll"
 set "BENCH_PROXY=vs-plugins/dlss45"
+:: VS 的 vsscript.dll 默认从包根加载，那样它要靠 %APPDATA%\vapoursynth\vapoursynth.toml
+:: 才能找到本包的 python.exe；一旦机器上的 toml 被别的（旧版）vapoursynth 工具重写，
+:: 条目格式对不上就直接初始化失败。改成加载包内 Lib\site-packages 下的那份副本：
+:: vsscript.dll 往上四层正好是包根，能自己找到 python.exe 与 python3.dll，不碰全局配置。
+set "BENCH_VSDL="
+if exist "Lib\site-packages\vapoursynth\vsscript.dll" set "BENCH_VSDL=%CD%\Lib\site-packages\vapoursynth\vsscript.dll"
 
 echo ==========================================================
 echo == 补帧滤镜性能测试
@@ -23,7 +29,8 @@ echo ==   VS 滤镜  ：vapoursynth + portable_config/vs/MEMC_DLSSG_NV.vpy
 echo ==   原生滤镜：vf_playkit（D3D11 硬解到 D3D12 零拷贝）
 echo == 同一段素材、同一倍数、同一分辨率各跑一遍，
 echo == 比较每秒能喂进多少输入帧（等效源 fps）。
-echo == 结果会写入 installer\mpv-FilterBench-result.tsv
+echo == 结果会写入 installer\mpv-FilterBench-result.tsv，
+echo == 系统/显卡/驱动信息和结果表会汇总进 installer\report.txt
 echo ==========================================================
 
 :: ---------------- 1. 测试素材 ----------------
@@ -71,6 +78,7 @@ if not exist "!CLIP!" (
     echo == 自动生成失败（这个构建没有可用的 h264 编码器），请手动指定一个视频文件
     goto :bye
 )
+set "AUTOCLIP=1"
 goto :have_clip
 
 :have_clip
@@ -117,6 +125,8 @@ echo == 倍数 !MULTI!
 :: ---------------- 5. 两条路径预检 ----------------
 :: 滤镜初始化失败时 mpv 只是禁用滤镜继续播，会跑出一个虚高的假数字。
 :: 所以先用 40 帧各试一次，到日志里找“初始化成功”的标记，找不到就跳过该路径。
+:: 旧的结果表先删掉，免得中途失败时报告里混进上一次的数字。
+del "!BENCH_OUT!" >nul 2>&1
 set "SKIP_VS="
 set "SKIP_NAT="
 echo.
@@ -124,7 +134,7 @@ call :precheck VS
 call :precheck NATIVE
 if defined SKIP_VS if defined SKIP_NAT (
     echo == 两条路径都初始化失败，无法测试（详见 !BENCH_LOGDIR!\pre-*.log）
-    goto :bye
+    goto :report
 )
 
 :: ---------------- 6. 逐分辨率跑两条路径 ----------------
@@ -139,7 +149,7 @@ type "!BENCH_OUT!"
 echo.
 echo == 详细结果已保存：!BENCH_OUT!
 echo == 若缺少某一行，运行日志在：!BENCH_LOGDIR!
-goto :bye
+goto :report
 
 :: ================= 单个路径的预检（40 帧） =================
 :precheck
@@ -149,9 +159,11 @@ if /i "!PC_TAG!"=="VS" (
     set "PC_VF=vapoursynth=!BENCH_VS!"
     set "PC_OK=vapoursynth] initialized."
     set "VDLSSG_MULTI=!MULTI!"
+    set "VSSCRIPT_PATH=!BENCH_VSDL!"
 ) else (
     set "PC_VF=playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY!"
     set "PC_OK=vdlssg bridge ready"
+    set "VSSCRIPT_PATH="
 )
 echo == 预检 !PC_TAG! ...
 :: mpv 的日志走 stdout，--log-file 另存一份完整日志（含 debug 级），用它来判断成败
@@ -202,13 +214,16 @@ if not defined SKIP_VS (
     echo == VS 滤镜 ...
     set "MPV_BENCH_TAG=VS-%~1"
     set "VDLSSG_MULTI=!MULTI!"
+    set "VSSCRIPT_PATH=!BENCH_VSDL!"
     mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\VS-%~1.log" --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
     set "VDLSSG_MULTI="
+    set "VSSCRIPT_PATH="
 )
 
 if not defined SKIP_NAT (
     echo == 原生滤镜 ...
     set "MPV_BENCH_TAG=NATIVE-%~1"
+    set "VSSCRIPT_PATH="
     mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\NATIVE-%~1.log" --vf=d3d11vpp=scale=!SCALE!,playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
 )
 
@@ -216,6 +231,33 @@ set "MPV_BENCH_TAG="
 set "MPV_BENCH_OUT="
 set "MPV_BENCH_MULTI="
 exit /b
+
+:: ================= 生成报告 =================
+:report
+echo.
+echo == 正在收集系统信息（系统 / 显卡 / 驱动 / mpv 版本）并生成报告 ...
+set "MPV_BENCH_REPORT=installer\report.txt"
+set "MPV_BENCH_TSV=!BENCH_OUT!"
+set "MPV_BENCH_CLIP=!CLIP!"
+set "MPV_BENCH_SRCW=!SRCW!"
+set "MPV_BENCH_RES=!RESSEL!"
+set "MPV_BENCH_MULTI=!MULTI!"
+set "MPV_BENCH_MPV=%CD%\mpv.com"
+if defined AUTOCLIP set "MPV_BENCH_AUTOCLIP=1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "installer\mpv_filter_bench_report.ps1" <nul
+if exist "installer\report.txt" (
+    echo == 报告已生成：installer\report.txt（系统、显卡、驱动版本 + 结果表，可直接发给别人）
+) else (
+    echo == 报告生成失败（PowerShell 不可用），请手动记录系统信息
+)
+set "MPV_BENCH_REPORT="
+set "MPV_BENCH_TSV="
+set "MPV_BENCH_CLIP="
+set "MPV_BENCH_SRCW="
+set "MPV_BENCH_RES="
+set "MPV_BENCH_MULTI="
+set "MPV_BENCH_AUTOCLIP="
+goto :bye
 
 :bye
 echo.
