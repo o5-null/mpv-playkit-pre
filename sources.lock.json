@@ -3,11 +3,11 @@
   "platform": "windows-x64",
   "components": {
     "k7sfunc": {
-      "version": "1.9.0+pre.8",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/e9770345f32c56f78e71cbb08e77495628be13ef",
-      "sha256": "044c3c27ce374188a06a453baea826d7d17814d8142595b1b4e78ba35b9a6b48",
-      "size": 515041,
-      "pinned_at": "2026-11-25T04:33:01Z"
+      "version": "1.9.0+pre.9",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/83a830fef4351d9b83e5e2e5ed3873ddddc7f5ac",
+      "sha256": "fa619e8bbdbc584d5dd4f69540717bbcde658546bb58d3a1ac365008fe3ed3f1",
+      "size": 519027,
+      "pinned_at": "2026-11-25T16:56:14Z"
     },
     "mpv": {
       "version": "mpv-x86_64-playkit-2026.11.23-2",
@@ -31,11 +31,11 @@
       "pinned_at": "2026-11-20T15:27:00Z"
     },
     "vs-framegen-dlls": {
-      "version": "0.2.1",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip",
-      "sha256": "578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5",
-      "size": 253831573,
-      "pinned_at": "2026-11-24T01:35:43Z"
+      "version": "0.2.2",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.2/vs-framegen-0.2.2.zip",
+      "sha256": "bfa079362644a532b15be7a1c8796c653f9c7edbfd5d53f0db5e341c8038d289",
+      "size": 253832410,
+      "pinned_at": "2026-11-25T16:58:42Z"
     },
     "vs-mlrt/models-artcnn": {
       "version": "models-artcnn",
@@ -220,11 +220,11 @@
       "pinned_at": "2026-11-20T18:08:48Z"
     },
     "vsdlssg/engine-framegen": {
-      "version": "0.2.1",
-      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.1/vs-framegen-0.2.1.zip",
-      "sha256": "578ccafe694d3dd4ba64131aca41aa9e14b103ec30652a1fc2451d64c7253fc5",
-      "size": 253831573,
-      "pinned_at": "2026-11-24T01:35:44Z"
+      "version": "0.2.2",
+      "url": "https://github.com/o5-null/vs-framegen/releases/download/v0.2.2/vs-framegen-0.2.2.zip",
+      "sha256": "bfa079362644a532b15be7a1c8796c653f9c7edbfd5d53f0db5e341c8038d289",
+      "size": 253832410,
+      "pinned_at": "2026-11-25T16:59:24Z"
     },
     "yt-dlp": {
       "version": "2026.10.26",

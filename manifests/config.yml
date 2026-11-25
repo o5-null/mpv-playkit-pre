@@ -63,28 +63,28 @@ presets:
   - id: dlssg
     key: "*"
     vpy: vs/MEMC_DLSSG_NV.vpy
-    label: 预设 补帧 Dlss (DLC-vsNV)
+    label: 预设 补帧 Dlss 2-6x (DLC-vsFG)
     requires: vsdlssg 引擎 vdlssg
     multi: true
 
   - id: xessfg
     key: "("
     vpy: vs/MEMC_XESSFG_NV.vpy
-    label: 预设 补帧 XeSS-FG 2× (DLC-vsNV)
+    label: 预设 补帧 XeSS-FG 2× (DLC-vsFG)
     requires: vsdlssg 引擎 vxessfg
     multi: true
 
   - id: vfg
     key: ")"
     vpy: vs/MEMC_VFG_NV.vpy
-    label: 预设 补帧 VFG 2-6× (DLC-vsNV)
+    label: 预设 补帧 VFG 2-6× (DLC-vsFG)
     requires: vsdlssg 引擎 vvfg
     multi: true
 
   - id: fsr4
     key: "_"
     vpy: vs/MEMC_FSR4.vpy
-    label: 预设 补帧 FSR4
+    label: 预设 补帧 FSR4 (DLC-vsFG)
     requires: vsdlssg 引擎 vfsr4
     multi: true
 
