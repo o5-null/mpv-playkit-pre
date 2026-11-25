@@ -12,6 +12,7 @@ cd /D "%~dp0.."
 set "BENCH_CONF=installer/mpv-FilterBench.conf"
 set "BENCH_LUA=installer/mpv_filter_bench.lua"
 set "BENCH_OUT=installer\mpv-FilterBench-result.tsv"
+set "BENCH_TMP=%TEMP%\mpv-filter-bench\result.tmp"
 set "BENCH_LOGDIR=%TEMP%\mpv-filter-bench"
 if not exist "!BENCH_LOGDIR!" mkdir "!BENCH_LOGDIR!" >nul 2>&1
 :: --vf does not expand ~~/, so all paths are relative to the package root
@@ -19,6 +20,10 @@ set "BENCH_VS_DLSSG=portable_config/vs/MEMC_DLSSG_NV.vpy"
 set "BENCH_VS_VFG=portable_config/vs/MEMC_VFG_NV.vpy"
 set "BENCH_DLL=vs-plugins/vdlssg.dll"
 set "BENCH_PROXY=vs-plugins/dlss45"
+:: Initialization markers: mpv disables a filter that fails and keeps playing, so
+:: every run is judged by these lines in its log instead of trusting the fps
+set "BENCH_OK_VS=vapoursynth] initialized."
+set "BENCH_OK_NAT=vdlssg bridge ready"
 :: VS loads vsscript.dll from the package root by default, which needs the global
 :: %APPDATA%\vapoursynth\vapoursynth.toml to locate this package's python.exe.
 :: If another (older) vapoursynth tool rewrites that toml, VS init fails. Use the
@@ -32,8 +37,9 @@ echo == Frame-interpolation filter benchmark
 echo ==   VS-DLSSG : vapoursynth + MEMC_DLSSG_NV.vpy (vdlssg / DLSS-G)
 echo ==   VS-VFG   : vapoursynth + MEMC_VFG_NV.vpy   (vvfg / NVIDIA VFG)
 echo ==   NATIVE   : vf_playkit, D3D11 hwdec straight into D3D12 (DLSS-G)
-echo == Every lane runs the same clip, the same multi and the same width;
-echo == the numbers compare how many source frames per second each lane takes.
+echo == Every lane runs the same clip at every resolution and multi;
+echo == the numbers say how many source frames per second each lane takes, and
+echo == + / - marks whether that is enough to keep up with the clip.
 echo == Results go to installer\mpv-FilterBench-result.tsv and the machine
 echo == summary plus the result table go to installer\report.txt
 echo ==========================================================
@@ -94,15 +100,16 @@ goto :have_clip
 echo.
 echo == Reading source resolution ...
 set "PROBE=%TEMP%\mpv-filter-bench-probe.txt"
-mpv.com --config=no --vo=null --no-audio --frames=1 --term-playing-msg="BENCHW=${width}" "!CLIP!" <nul >"!PROBE!" 2>&1
+mpv.com --config=no --vo=null --no-audio --frames=1 --term-playing-msg="BENCHW=${width}x${height}" "!CLIP!" <nul >"!PROBE!" 2>&1
 set "SRCW="
-for /f "tokens=2 delims==" %%a in ('findstr /b "BENCHW=" "!PROBE!"') do set "SRCW=%%a"
+set "SRCH="
+for /f "tokens=2 delims==" %%a in ('findstr /b "BENCHW=" "!PROBE!"') do for /f "tokens=1,2 delims=x" %%i in ("%%a") do set "SRCW=%%i" & set "SRCH=%%j"
 del "!PROBE!" >nul 2>&1
 if not defined SRCW (
-    echo == Could not read the source width; make sure mpv can open this file
+    echo == Could not read the source resolution; make sure mpv can open this file
     goto :bye
 )
-echo == Source width !SRCW! px
+echo == Source resolution !SRCW!x!SRCH!
 
 :: ---------------- 3. pick resolutions ----------------
 set "RESSEL=%~2"
@@ -118,18 +125,36 @@ if not defined RESSEL set "RESSEL=1080p 2k 4k"
 set "RESSEL=!RESSEL:,= !"
 
 :: ---------------- 4. pick multi ----------------
-set "MULTI=%~3"
-if defined MULTI goto :multi_ready
+:: Several multi values are allowed: the point of the sweep is to show which
+:: resolution x multi combinations this machine can keep up with.
+set "MULTISEL=%~3"
+if defined MULTISEL goto :multi_ready
 echo.
 echo == Multi (inserted frames per input pair), 2-6
-echo == Note: VS-VFG keeps one CUDA lane per inserted frame (~1.5 GB VRAM each);
-echo == 4K with multi above 2 can run out of memory on a 10 GB card and gets skipped
-set /p "MULTI=Multi (Enter = 2): "
+echo ==   Several are allowed; Enter = the whole 2-6 sweep
+echo ==   Note: VS-VFG keeps one CUDA lane per inserted frame, about 1.5 GB VRAM
+echo ==   each; 4K at a high multi can run out of memory on a 10 GB card. Such
+echo ==   combinations show up as - rows instead of stopping the sweep
+set /p "MULTISEL=Multi (Enter = 2 3 4 5 6): "
 
 :multi_ready
-if not defined MULTI set "MULTI=2"
-echo !MULTI!|findstr /r "^[2-6]$" >nul || set "MULTI=2"
-echo == Multi !MULTI!
+if not defined MULTISEL set "MULTISEL=2 3 4 5 6"
+set "MULTISEL=!MULTISEL:,= !"
+:: keep only 2-6; the first one left is used for precheck
+set "VALID="
+for %%m in (!MULTISEL!) do (
+    set "TOK=%%m"
+    if "!TOK!"=="2" set "VALID=!VALID! 2"
+    if "!TOK!"=="3" set "VALID=!VALID! 3"
+    if "!TOK!"=="4" set "VALID=!VALID! 4"
+    if "!TOK!"=="5" set "VALID=!VALID! 5"
+    if "!TOK!"=="6" set "VALID=!VALID! 6"
+)
+if not defined VALID set "VALID= 2"
+set "MULTISEL=!VALID:~1!"
+set "PMULTI="
+for %%m in (!MULTISEL!) do if not defined PMULTI set "PMULTI=%%m"
+echo == Multi !MULTISEL!
 
 :: ---------------- 5. precheck all lanes ----------------
 :: When a filter fails to initialize mpv just disables it and keeps playing,
@@ -149,13 +174,15 @@ if defined SKIP_VS_DLSSG if defined SKIP_VS_VFG if defined SKIP_NAT (
     goto :report
 )
 
-:: ---------------- 6. run every lane per resolution ----------------
+:: ---------------- 6. run every lane per resolution x multi ----------------
 > "!BENCH_OUT!" echo tag	WxH	multi	frames	elapsed_s	out_fps	src_fps	note
-for %%r in (!RESSEL!) do call :bench_one %%r
+for %%r in (!RESSEL!) do for %%m in (!MULTISEL!) do call :bench_one %%r %%m
 
 echo.
 echo ==========================================================
 echo == Results (out_fps = presented frames per second, src_fps = out_fps / multi)
+echo == + means src_fps covers the clip frame rate, - means it does not
+echo == A row full of dashes means that lane could not run at that multi
 echo ==========================================================
 type "!BENCH_OUT!"
 echo.
@@ -175,21 +202,21 @@ set "VVFG_MULTI="
 set "VSSCRIPT_PATH="
 if /i "!PC_TAG!"=="VS-DLSSG" (
     set "PC_VF=vapoursynth=!BENCH_VS_DLSSG!"
-    set "PC_OK=vapoursynth] initialized."
-    set "VDLSSG_MULTI=!MULTI!"
+    set "PC_OK=!BENCH_OK_VS!"
+    set "VDLSSG_MULTI=!PMULTI!"
     set "VSSCRIPT_PATH=!BENCH_VSDL!"
     set "PC_SKIPVAR=SKIP_VS_DLSSG"
 )
 if /i "!PC_TAG!"=="VS-VFG" (
     set "PC_VF=vapoursynth=!BENCH_VS_VFG!"
-    set "PC_OK=vapoursynth] initialized."
-    set "VVFG_MULTI=!MULTI!"
+    set "PC_OK=!BENCH_OK_VS!"
+    set "VVFG_MULTI=!PMULTI!"
     set "VSSCRIPT_PATH=!BENCH_VSDL!"
     set "PC_SKIPVAR=SKIP_VS_VFG"
 )
 if /i "!PC_TAG!"=="NATIVE" (
-    set "PC_VF=playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY!"
-    set "PC_OK=vdlssg bridge ready"
+    set "PC_VF=playkit=multi=!PMULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY!"
+    set "PC_OK=!BENCH_OK_NAT!"
     set "PC_SKIPVAR=SKIP_NAT"
 )
 echo == Precheck !PC_TAG! ...
@@ -206,7 +233,7 @@ if errorlevel 1 (
 )
 exit /b
 
-:: ================= benchmark one resolution =================
+:: ================= benchmark one resolution x multi =================
 :bench_one
 set "TW="
 if /i "%~1"=="1080p" set "TW=1920"
@@ -221,53 +248,97 @@ if not defined TW (
     echo == Skipping unknown resolution: %~1 - use 1080p / 2k / 4k
     exit /b
 )
+set "MULTI=%~2"
 
-:: d3d11vpp scales inside the hardware domain; the factor is based on width
+:: d3d11vpp scales inside the hardware domain; the factor is based on width and
+:: the target height follows the source aspect ratio, rounded to even
 set "PSC=%TEMP%\mpv-filter-bench-scale.ps1"
->"!PSC!" echo ([math]::Round(!TW! / !SRCW!, 4)).ToString([Globalization.CultureInfo]::InvariantCulture)
+>"!PSC!" echo $inv = [Globalization.CultureInfo]::InvariantCulture
+>>"!PSC!" echo ([math]::Round(!TW! / !SRCW!, 4)).ToString($inv)
+>>"!PSC!" echo ([math]::Round(!TW! * !SRCH! / !SRCW! / 2, 0) * 2).ToString($inv)
 set "SCALE="
-for /f "delims=" %%s in ('powershell -NoProfile -ExecutionPolicy Bypass -File "!PSC!"') do set "SCALE=%%s"
+set "TGH="
+set "PSCN=0"
+for /f "delims=" %%s in ('powershell -NoProfile -ExecutionPolicy Bypass -File "!PSC!"') do (
+    if "!PSCN!"=="0" set "SCALE=%%s"
+    if "!PSCN!"=="1" set "TGH=%%s"
+    set /a PSCN+=1
+)
 del "!PSC!" >nul 2>&1
 if not defined SCALE set "SCALE=1"
+if not defined TGH set "TGH=0"
+set "WXH=!TW!x!TGH!"
 
 echo.
 echo == ----------------------------------------------------------
-echo == Target width !TW! px, scale factor !SCALE!, multi !MULTI!
+echo == Target !WXH!, scale factor !SCALE!, multi !MULTI!
 echo == ----------------------------------------------------------
 
 set "MPV_BENCH_OUT=!BENCH_OUT!"
 set "MPV_BENCH_MULTI=!MULTI!"
 
+set "LANE_NOTE=failed"
+if defined SKIP_VS_DLSSG set "LANE_NOTE=lane-skipped"
 if not defined SKIP_VS_DLSSG (
-    echo == VS-DLSSG ...
-    set "MPV_BENCH_TAG=VS-DLSSG-%~1"
+    echo == VS-DLSSG %~1 !MULTI!x ...
+    set "MPV_BENCH_TAG=VS-DLSSG-%~1-!MULTI!x"
     set "VDLSSG_MULTI=!MULTI!"
     set "VSSCRIPT_PATH=!BENCH_VSDL!"
-    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\VS-DLSSG-%~1.log" --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS_DLSSG! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
+    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\VS-DLSSG-%~1-!MULTI!x.log" --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS_DLSSG! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
     set "VDLSSG_MULTI="
     set "VSSCRIPT_PATH="
+    call :check_run "VS-DLSSG-%~1-!MULTI!x" "!BENCH_LOGDIR!\VS-DLSSG-%~1-!MULTI!x.log" "!BENCH_OK_VS!"
 )
+call :need_row "VS-DLSSG-%~1-!MULTI!x" "!WXH!" "!MULTI!" "!LANE_NOTE!"
 
+set "LANE_NOTE=failed"
+if defined SKIP_VS_VFG set "LANE_NOTE=lane-skipped"
 if not defined SKIP_VS_VFG (
-    echo == VS-VFG ...
-    set "MPV_BENCH_TAG=VS-VFG-%~1"
+    echo == VS-VFG %~1 !MULTI!x ...
+    set "MPV_BENCH_TAG=VS-VFG-%~1-!MULTI!x"
     set "VVFG_MULTI=!MULTI!"
     set "VSSCRIPT_PATH=!BENCH_VSDL!"
-    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\VS-VFG-%~1.log" --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS_VFG! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
+    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\VS-VFG-%~1-!MULTI!x.log" --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS_VFG! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
     set "VVFG_MULTI="
     set "VSSCRIPT_PATH="
+    call :check_run "VS-VFG-%~1-!MULTI!x" "!BENCH_LOGDIR!\VS-VFG-%~1-!MULTI!x.log" "!BENCH_OK_VS!"
 )
+call :need_row "VS-VFG-%~1-!MULTI!x" "!WXH!" "!MULTI!" "!LANE_NOTE!"
 
+set "LANE_NOTE=failed"
+if defined SKIP_NAT set "LANE_NOTE=lane-skipped"
 if not defined SKIP_NAT (
-    echo == NATIVE ...
-    set "MPV_BENCH_TAG=NATIVE-%~1"
+    echo == NATIVE %~1 !MULTI!x ...
+    set "MPV_BENCH_TAG=NATIVE-%~1-!MULTI!x"
     set "VSSCRIPT_PATH="
-    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\NATIVE-%~1.log" --vf=d3d11vpp=scale=!SCALE!,playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
+    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\NATIVE-%~1-!MULTI!x.log" --vf=d3d11vpp=scale=!SCALE!,playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
+    call :check_run "NATIVE-%~1-!MULTI!x" "!BENCH_LOGDIR!\NATIVE-%~1-!MULTI!x.log" "!BENCH_OK_NAT!"
 )
+call :need_row "NATIVE-%~1-!MULTI!x" "!WXH!" "!MULTI!" "!LANE_NOTE!"
 
 set "MPV_BENCH_TAG="
 set "MPV_BENCH_OUT="
 set "MPV_BENCH_MULTI="
+exit /b
+
+:: ================= drop the row of a run where the filter never came up =====
+:: A filter that fails at a given multi is just disabled by mpv, which then
+:: plays at full speed; the probe would record that fake number. Judge the run
+:: by the initialization marker in its own log and remove its row if missing.
+:check_run
+findstr /i /c:"%~3" "%~2" >nul 2>&1
+if not errorlevel 1 exit /b
+findstr /v /b /c:"%~1" "!BENCH_OUT!" >"!BENCH_TMP!" 2>nul
+move /y "!BENCH_TMP!" "!BENCH_OUT!" >nul 2>&1
+exit /b
+
+:: ================= append a placeholder row for a run without data =================
+:: mpv stays silent when a filter cannot initialize for this multi, so without
+:: this the table would just have a gap instead of an explicit "not supported"
+:need_row
+findstr /b /c:"%~1" "!BENCH_OUT!" >nul 2>&1
+if not errorlevel 1 exit /b
+>>"!BENCH_OUT!" echo %~1	%~2	%~3	-	-	-	-	%~4
 exit /b
 
 :: ================= build the report =================
@@ -277,9 +348,9 @@ echo == Collecting system information (OS / GPU / driver / mpv version) ...
 set "MPV_BENCH_REPORT=installer\report.txt"
 set "MPV_BENCH_TSV=!BENCH_OUT!"
 set "MPV_BENCH_CLIP=!CLIP!"
-set "MPV_BENCH_SRCW=!SRCW!"
+set "MPV_BENCH_SRCWH=!SRCW!x!SRCH!"
 set "MPV_BENCH_RES=!RESSEL!"
-set "MPV_BENCH_MULTI=!MULTI!"
+set "MPV_BENCH_MULTI=!MULTISEL!"
 set "MPV_BENCH_MPV=%CD%\mpv.com"
 if defined AUTOCLIP set "MPV_BENCH_AUTOCLIP=1"
 powershell -NoProfile -ExecutionPolicy Bypass -File "installer\mpv_filter_bench_report.ps1" <nul
@@ -291,7 +362,7 @@ if exist "installer\report.txt" (
 set "MPV_BENCH_REPORT="
 set "MPV_BENCH_TSV="
 set "MPV_BENCH_CLIP="
-set "MPV_BENCH_SRCW="
+set "MPV_BENCH_SRCWH="
 set "MPV_BENCH_RES="
 set "MPV_BENCH_MULTI="
 set "MPV_BENCH_AUTOCLIP="

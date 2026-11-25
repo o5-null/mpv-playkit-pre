@@ -8,7 +8,7 @@
 --
 -- Parameters come from environment variables (mpv normalizes "-" to "_" in
 -- script names, which makes a script-opts prefix awkward):
---   MPV_BENCH_TAG    row label, e.g. VS-DLSSG-1080p
+--   MPV_BENCH_TAG    row label, e.g. VS-DLSSG-1080p-2x
 --   MPV_BENCH_OUT    TSV output file (appended)
 --   MPV_BENCH_MULTI  interpolation factor, used to derive the equivalent source fps
 
@@ -42,6 +42,16 @@ local function count_frames(pos)
     return want, false
 end
 
+-- "src_fps" is out_fps / multi, i.e. how many source frames per second the lane
+-- can take at this multi. It gets a "+" when that covers the clip frame rate
+-- (realtime interpolation possible) and a "-" when it does not.
+local function verdict(need)
+    if src > 0 then
+        return need >= src and "+" or "-"
+    end
+    return ""
+end
+
 local function report()
     if done or not t0 then return end
     done = true
@@ -53,14 +63,15 @@ local function report()
     end
     local ofps = frames / elapsed
     local need = multi > 0 and ofps / multi or ofps
+    local mark = verdict(need)
     local note = eof and "clip-eof" or ""
-    print(string.format("[bench] %-16s %dx%d multi=%d %5d frames %6.2fs -> %7.1f out fps | %6.1f src fps %s",
-        tag, w, h, multi, frames, elapsed, ofps, need, note))
+    print(string.format("[bench] %-18s %dx%d multi=%d %5d frames %6.2fs -> %7.1f out fps | %6.1f src fps%s %s",
+        tag, w, h, multi, frames, elapsed, ofps, need, mark, note))
     if out ~= "" then
         local f = io.open(out, "a")
         if f then
-            f:write(string.format("%s\t%dx%d\t%d\t%d\t%.3f\t%.1f\t%.1f\t%s\n",
-                tag, w, h, multi, frames, elapsed, ofps, need, note))
+            f:write(string.format("%s\t%dx%d\t%d\t%d\t%.3f\t%.1f\t%.1f%s\t%s\n",
+                tag, w, h, multi, frames, elapsed, ofps, need, mark, note))
             f:close()
         end
     end
@@ -71,7 +82,7 @@ mp.register_event("playback-restart", function()
     t0 = mp.get_time()
     w = mp.get_property_number("video-out-params/w") or 0
     h = mp.get_property_number("video-out-params/h") or 0
-    src = mp.get_property_number("container-fps") or 0
+    src = mp.get_property_number("container-fps") or mp.get_property_number("video-params/fps") or 0
 end)
 
 mp.register_event("end-file", function() report() end)
