@@ -516,8 +516,8 @@
   把它们落到包的 `installer/` 下。**只放这三个文件**，installer/ 里其余上游脚本仍然冻结、
   仍然不进包。
 - **原因**：用户拿了包想知道"我这台机器 VS 滤镜和原生滤镜哪个快、该开几倍"，就得有一个
-  双击可用的入口；跑分必须用真素材 + `hwdec=d3d11va`（合成源与 `vo=null` 都喂不出 D3D11 帧，
-  滤镜会静默不执行），也只能在分发包里跑（要 `mpv.com` / `portable_config` / `vs-plugins`），
+  双击可用的入口；跑分必须用真视频文件（截图/合成源直接喂 `--vf` 时滤镜链建不起来，
+  拿不到 D3D11 帧，滤镜会静默不执行），也只能在分发包里跑（要 `mpv.com` / `portable_config` / `vs-plugins`），
   所以脚本必须随包走。为了不动既有冻结约定，用独立组件精确放行三个文件，而不是解冻整个目录。
 - **做法要点**：
   - 分辨率不换素材：`--vf=d3d11vpp=scale=W/SRCW,<补帧滤镜>` 在 D3D11 视频处理器里按宽度缩放，
@@ -527,6 +527,13 @@
     呈现端必须 `d3d11-flip=no` + `d3d11-sync-interval=0`，否则被 vsync/DWM 压到 66fps。
   - 交互：拖入/粘贴素材 → 提示分辨率（空=1080p 2k 4k 全测）→ 提示倍数（空=2）；
     也给 `bat "视频" "1080p 4k" 6` 这种免交互用法，便于批处理。
+   - **素材可以不准备**：直接回车就用 `av://lavfi:testsrc2` 编一段 10 秒 1920x1080 片段缓存到
+     `%TEMP%\mpv-filter-bench\bench-src.mp4`（必须 mp4：matroska 输出写不出帧率，vpy 拿到 0 会
+     报 `AssumeFPS: invalid framerate specified`；`--ofps` 这个选项不存在，加了产出 0 字节）。
+   - 正式跑分前**预检**两条路径各 40 帧，在 `--log-file` 里找成功标记
+     （VS：`[vapoursynth] initialized.`；原生：`playkit: vdlssg bridge ready`），找不到就整段跳过。
+     原因是滤镜初始化失败时 mpv 只是 `Disabling filter ...` 继续播，会跑出 1300+fps 的假数字。
+     顺带一个坑：mpv 自身日志走 **stdout**（Lua 的 `print` 也在 stdout），要留完整日志得用 `--log-file=`。
 - **代价 / 边界**：数字含呈现端开销（比 `PLAYKIT_TIMING` 的 process 大得多，1080p 2× 原生约
   34ms/对 vs 内部 5–8ms），是"能喂多快"而不是"滤镜占多少 CPU"；两种滤镜共用同一套 harness 才可比。
   已知坑：`--include` 必须写 `=`；`--vf=` 里的 `~~/` 不展开，要写相对包根路径；

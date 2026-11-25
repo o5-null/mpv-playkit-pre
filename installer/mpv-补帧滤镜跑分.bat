@@ -28,7 +28,9 @@ echo ==========================================================
 
 :: ---------------- 1. 测试素材 ----------------
 :: 用法（可选，用来跳过交互）：
-::   mpv-补帧滤镜跑分.bat "视频路径" "1080p 4k" 2
+::   mpv-补帧滤镜跑分.bat ["视频路径"] ["1080p 4k"] [倍数]
+:: 不给素材时会自动生成一段 10 秒 1080p 片段并缓存到 %TEMP%。
+:: 补帧滤镜只吃硬件帧，合成源没法直接喂滤镜，所以必须先落成文件再硬解。
 set "CLIP=%~1"
 if defined CLIP goto :clip_ready
 for %%f in ("%~dp0bench-clip.mkv" "%~dp0bench-clip.mp4" "%~dp0bench-clip.mov") do if exist "%%~f" set "CLIP=%%~f"
@@ -37,19 +39,41 @@ if defined CLIP (
     goto :clip_ready
 )
 echo.
-echo == 请把测试用的视频文件拖进本窗口，或直接输入完整路径
-echo == 提示：把视频改名为 bench-clip.mkv 放进 installer 目录，以后就不用手动输入
-set /p "CLIP=视频路径（回车=退出）: "
-if not defined CLIP goto :bye
+echo == 不需要准备素材：直接回车就会生成一段 10 秒 1080p 测试片段
+echo == 也可以把视频拖进本窗口，或粘贴完整路径（自带素材更贴近实际片源）
+set /p "CLIP=视频路径（回车=自动生成）: "
+if not defined CLIP goto :gen_clip
 
 :clip_ready
 set "CLIP=!CLIP:"=!"
+if not defined CLIP goto :gen_clip
 if not exist "!CLIP!" (
     echo == 找不到文件：!CLIP!
     goto :bye
 )
 echo == 测试素材：!CLIP!
+goto :have_clip
 
+:gen_clip
+:: 用 mp4 而不是 mkv：mkv 这里写不出帧率，vpy 会拿 0 去 AssumeFPS 直接失败
+set "CLIP=!BENCH_LOGDIR!\bench-src.mp4"
+if exist "!CLIP!" (
+    echo == 复用上次生成的测试片段（删掉这个文件可重新生成）
+    goto :have_clip
+)
+echo == 正在生成 10 秒 1920x1080 测试片段，只需一次 ...
+mpv.com --no-config --o="!CLIP!" --of=mp4 --ovc=libx264 --ovcopts=preset=veryfast,crf=23 --frames=300 "av://lavfi:testsrc2=s=1920x1080:r=30" <nul >nul 2>&1
+if not exist "!CLIP!" (
+    :: 没有 libx264 的构建退回 NVENC，再不行就让用户手动给素材
+    mpv.com --no-config --o="!CLIP!" --of=mp4 --ovc=h264_nvenc --frames=300 "av://lavfi:testsrc2=s=1920x1080:r=30" <nul >nul 2>&1
+)
+if not exist "!CLIP!" (
+    echo == 自动生成失败（这个构建没有可用的 h264 编码器），请手动指定一个视频文件
+    goto :bye
+)
+goto :have_clip
+
+:have_clip
 :: ---------------- 2. 探测片源宽度 ----------------
 echo.
 echo == 正在读取片源分辨率 ...
@@ -90,7 +114,20 @@ if not defined MULTI set "MULTI=2"
 echo !MULTI!|findstr /r "^[2-6]$" >nul || set "MULTI=2"
 echo == 倍数 !MULTI!
 
-:: ---------------- 5. 逐分辨率跑两条路径 ----------------
+:: ---------------- 5. 两条路径预检 ----------------
+:: 滤镜初始化失败时 mpv 只是禁用滤镜继续播，会跑出一个虚高的假数字。
+:: 所以先用 40 帧各试一次，到日志里找“初始化成功”的标记，找不到就跳过该路径。
+set "SKIP_VS="
+set "SKIP_NAT="
+echo.
+call :precheck VS
+call :precheck NATIVE
+if defined SKIP_VS if defined SKIP_NAT (
+    echo == 两条路径都初始化失败，无法测试（详见 !BENCH_LOGDIR!\pre-*.log）
+    goto :bye
+)
+
+:: ---------------- 6. 逐分辨率跑两条路径 ----------------
 > "!BENCH_OUT!" echo tag	WxH	multi	frames	elapsed_s	out_fps	src_fps	note
 for %%r in (!RESSEL!) do call :bench_one %%r
 
@@ -103,6 +140,31 @@ echo.
 echo == 详细结果已保存：!BENCH_OUT!
 echo == 若缺少某一行，运行日志在：!BENCH_LOGDIR!
 goto :bye
+
+:: ================= 单个路径的预检（40 帧） =================
+:precheck
+set "PC_TAG=%~1"
+set "PC_LOG=!BENCH_LOGDIR!\pre-!PC_TAG!.log"
+if /i "!PC_TAG!"=="VS" (
+    set "PC_VF=vapoursynth=!BENCH_VS!"
+    set "PC_OK=vapoursynth] initialized."
+    set "VDLSSG_MULTI=!MULTI!"
+) else (
+    set "PC_VF=playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY!"
+    set "PC_OK=vdlssg bridge ready"
+)
+echo == 预检 !PC_TAG! ...
+:: mpv 的日志走 stdout，--log-file 另存一份完整日志（含 debug 级），用它来判断成败
+mpv.com --config=no --include=!BENCH_CONF! --log-file="!PC_LOG!" --frames=40 --vf=!PC_VF! "!CLIP!" <nul >nul 2>nul
+set "VDLSSG_MULTI="
+findstr /i /c:"!PC_OK!" "!PC_LOG!" >nul 2>&1
+if errorlevel 1 (
+    echo == 警告：!PC_TAG! 滤镜初始化失败，本次跳过（日志 !PC_LOG!）
+    if /i "!PC_TAG!"=="VS" set "SKIP_VS=1"
+    if /i "!PC_TAG!"=="NATIVE" set "SKIP_NAT=1"
+    findstr /i /c:"cannot load" /c:"could not init" /c:"Script evaluation failed" /c:"Disabling filter" "!PC_LOG!" >nul 2>&1 && echo == 原因多半是文件或 DLL 缺失，日志里最后几行带 [e] 的就是原因
+)
+exit /b
 
 :: ================= 单个分辨率的测试 =================
 :bench_one
@@ -136,15 +198,19 @@ echo == ----------------------------------------------------------
 set "MPV_BENCH_OUT=!BENCH_OUT!"
 set "MPV_BENCH_MULTI=!MULTI!"
 
-echo == VS 滤镜 ...
-set "MPV_BENCH_TAG=VS-%~1"
-set "VDLSSG_MULTI=!MULTI!"
-mpv.com --config=no --include=!BENCH_CONF! --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS! --script=!BENCH_LUA! "!CLIP!" <nul 2>"!BENCH_LOGDIR!\VS-%~1.log"
-set "VDLSSG_MULTI="
+if not defined SKIP_VS (
+    echo == VS 滤镜 ...
+    set "MPV_BENCH_TAG=VS-%~1"
+    set "VDLSSG_MULTI=!MULTI!"
+    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\VS-%~1.log" --vf=d3d11vpp=scale=!SCALE!,vapoursynth=!BENCH_VS! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
+    set "VDLSSG_MULTI="
+)
 
-echo == 原生滤镜 ...
-set "MPV_BENCH_TAG=NATIVE-%~1"
-mpv.com --config=no --include=!BENCH_CONF! --vf=d3d11vpp=scale=!SCALE!,playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY! --script=!BENCH_LUA! "!CLIP!" <nul 2>"!BENCH_LOGDIR!\NATIVE-%~1.log"
+if not defined SKIP_NAT (
+    echo == 原生滤镜 ...
+    set "MPV_BENCH_TAG=NATIVE-%~1"
+    mpv.com --config=no --include=!BENCH_CONF! --log-file="!BENCH_LOGDIR!\NATIVE-%~1.log" --vf=d3d11vpp=scale=!SCALE!,playkit=multi=!MULTI!:log=no:dll=!BENCH_DLL!:proxy_dir=!BENCH_PROXY! --script=!BENCH_LUA! "!CLIP!" <nul 2>nul
+)
 
 set "MPV_BENCH_TAG="
 set "MPV_BENCH_OUT="
