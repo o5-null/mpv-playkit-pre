@@ -588,3 +588,18 @@
   搬目录踩过的坑：watcher 持有句柄时 `Move-Item` 会退化成复制+删除并在 `.git` 上报
   `Access is denied`，同卷搬目录要直接用 `move`（改名）或 `robocopy /MOVE`。
 
+## 35. 跑分脚本加 VS-VFG 车道、全英文并改名 mpv-FilterBench.bat（2026-11-26）
+
+- **决策**：跑分入口从 `installer/mpv-补帧滤镜跑分.bat` 改名为 `installer/mpv-FilterBench.bat`，
+  四个脚本（bat / conf / lua / ps1）的注释、提示、TSV 表头与 `report.txt` 全部改成英文，
+  bat 保持纯 ASCII + CRLF（不再 `chcp 936`）；同时新增一条 **VS-VFG** 车道
+  （`vapoursynth + portable_config/vs/MEMC_VFG_NV.vpy`，multi 走 `VVFG_MULTI` 环境变量），
+  每档分辨率依次跑 VS-DLSSG / VS-VFG / NATIVE 三条。
+- **原因**：原生滤镜 `vf_playkit` 只导出 vdlssg 的 bridge（`vf_playkit.c` 取
+  `vdlssg_bridge_create`，`bridge.cpp` 里 engine 固定为 Dlss），VFG 跑不了原生路径；
+  英文输出便于把结果直接贴到 issue/论坛，也免掉 GB18030 批处理在非中文系统上的乱码风险。
+- **代价 / 边界**：三条车道各自一个 mpv 进程，满足 DLSS-G 与 VFG 不能同进程加载的限制；
+  VFG 每个内插点占一条 CUDA lane（约 1.5 GB 显存），4K + 高倍数在 10 GB 卡上会预检失败并
+  整段跳过（脚本会提示，不算错误）；`manifests/components.yml` 的 `bench-scripts` 与
+  `docs/mpv-filter-bench.md` 已同步新文件名。
+

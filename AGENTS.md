@@ -14,7 +14,7 @@
 | `sources.lock.json` | 组件**版本**（version / url / sha256 / size），唯一版本真相 |
 | `configs/` | 本仓库的包布局文件（`portable.vs`、`vs-plugins.keep`、`configs/packs/` 下的许可与第三方说明） |
 | `portable_config/` | **本地维护**的基准配置（取自 mpv-lazy 最后发版）；只有 `shaders/` 由 `build.sync` 跟随上游整目录替换 |
-| `installer/` | 上游安装脚本，已冻结：不再同步、也不进包（保留只为留档）。例外：补帧滤镜跑分三件套（`mpv-补帧滤镜跑分.bat` / `mpv-FilterBench.conf` / `mpv_filter_bench.lua`）由 `bench-scripts` 组件打进包的 `installer/` |
+| `installer/` | 上游安装脚本，已冻结：不再同步、也不进包（保留只为留档）。例外：补帧滤镜跑分四件套（`mpv-FilterBench.bat` / `mpv-FilterBench.conf` / `mpv_filter_bench.lua` / `mpv_filter_bench_report.ps1`）由 `bench-scripts` 组件打进包的 `installer/` |
 | `docs/` | `BUILD.md` 构建链、`DECISIONS.md` 决策与已知坑、`TOOLKIT.md` K7sfunc 预设层 |
 | `.work/`、`dist/` | 临时解包与中间 stage，均已 gitignore；交付归档与下载缓存在共享目录（见下） |
 
