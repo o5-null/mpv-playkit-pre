@@ -3,11 +3,11 @@
   "platform": "windows-x64",
   "components": {
     "k7sfunc": {
-      "version": "1.9.0+pre.7",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/8d7eb2a4ce7d9a4ab4315ecc41a97b75e61f978b",
-      "sha256": "3a3b46911fa91e70502fe85158c74410875b4095066793221cfe1c38890536c6",
-      "size": 511000,
-      "pinned_at": "2026-11-24T01:29:23Z"
+      "version": "1.9.0+pre.8",
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/e9770345f32c56f78e71cbb08e77495628be13ef",
+      "sha256": "044c3c27ce374188a06a453baea826d7d17814d8142595b1b4e78ba35b9a6b48",
+      "size": 515041,
+      "pinned_at": "2026-11-25T04:33:01Z"
     },
     "mpv": {
       "version": "mpv-x86_64-playkit-2026.11.23-2",
