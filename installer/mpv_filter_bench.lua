@@ -1,8 +1,16 @@
 -- mpv_filter_bench.lua
 -- Frame-interpolation throughput probe, loaded by installer\mpv-FilterBench.bat.
--- Timing: from the first presented frame (playback-restart) to reaching the
--- --frames output count, so the one-off NGX/bridge initialization is excluded
--- and the number is steady-state throughput.
+--
+-- Timing: every lane needs a run-in before it reaches its real speed - NGX /
+-- bridge init, model load, CUDA graph capture, and (for VFG) one CUDA lane per
+-- inserted frame that warms up separately. Timing from the first presented
+-- frame includes that ramp and badly understates steady-state throughput, most
+-- of all for VFG. So this probe polls the presented-frame counter, waits until
+-- the frame rate has settled (two adjacent windows within a tolerance), and
+-- only then starts the clock. Measurement runs from that point to the end of
+-- the run, or a couple of seconds after settling when the lane is slow, so a
+-- stable value is what lands in the table.
+--
 -- The result is printed to the terminal and appended as one TSV row to the file
 -- named by MPV_BENCH_OUT.
 --
@@ -24,22 +32,63 @@ local tag   = opt("MPV_BENCH_TAG", "tag") or "run"
 local out   = opt("MPV_BENCH_OUT", "out") or ""
 local multi = tonumber(opt("MPV_BENCH_MULTI", "multi") or "") or 0
 
-local t0 = nil      -- mpv time when timing started (seconds)
-local w, h, src = 0, 0, 0
-local done = false
+-- Warm-up / measurement tuning ------------------------------------------------
+local SAMPLE_PERIOD = 0.1   -- poll interval for the presented-frame counter
+local WARMUP_MIN    = 1.0   -- never call it settled earlier than this (s)
+local WARMUP_MAX    = 12.0  -- give up waiting for a settled rate after this (s)
+local WARM_WIN      = 1.0   -- length of each comparison window (s)
+local WARM_TOL      = 0.08  -- two consecutive windows must agree within 8 %
+local WARM_MIN_FRM  = 8     -- a window needs this many output frames to count
+local MEASURE_MIN_S = 3.0   -- keep measuring at least this long after settling
+local MEASURE_MIN_F = 60    -- ... or this many output frames, whichever is later
 
--- When the clip ends before --frames is reached, derive the real output count
--- from the media position instead
-local function count_frames(pos)
+local t_play = nil          -- internal time when playback started
+local w, h, src = 0, 0, 0
+local samples = {}          -- { t = internal time, f = output frames so far }
+local t0, f0 = nil, nil     -- measurement start (nil until the rate settles)
+local warm = 0              -- seconds of warm-up skipped
+local warm_timeout = false  -- settle check timed out, measured the rest anyway
+local early_quit = false    -- stopped by MEASURE_MIN_* instead of --frames / eof
+local done = false
+local timer
+
+-- Output frames presented so far. time-pos advances with the source, so
+-- pos * src * multi is the interpolated frame count. capped is true when the
+-- --frames limit is what stops the run.
+local function frames_now()
     local want = mp.get_property_number("options/frames") or 0
-    local est = (pos and pos > 0 and src > 0 and multi > 0) and (pos * src * multi) or 0
-    if want <= 0 then
-        return math.floor(est + 0.5), est > 0
+    local pos  = mp.get_property_number("time-pos") or 0
+    local est  = (pos > 0 and src > 0 and multi > 0) and (pos * src * multi) or 0
+    if want > 0 and est >= want * 0.98 then
+        return want, true
     end
-    if est > 0 and est < want * 0.98 then
-        return math.floor(est + 0.5), true     -- clip too short, use the played position
+    return math.floor(est + 0.5), false
+end
+
+local function add_sample(t, f)
+    samples[#samples + 1] = { t = t, f = f }
+    -- Drop history older than the warm-up horizon; it is never compared again
+    local horizon = t - (WARMUP_MAX + 2 * WARM_WIN + 2)
+    while #samples > 2 and samples[1].t < horizon do
+        table.remove(samples, 1)
     end
-    return want, false
+end
+
+-- Latest sample whose time is <= t_target (nil when no sample is that old).
+local function sample_at(t_target)
+    for i = #samples, 1, -1 do
+        if samples[i].t <= t_target then return samples[i] end
+    end
+    return nil
+end
+
+-- Average frame rate over [ta, tb], plus how many frames that window covered.
+local function rate_between(ta, tb)
+    local a, b = sample_at(ta), sample_at(tb)
+    if not a or not b or b.t - a.t < SAMPLE_PERIOD * 0.75 then return nil, 0 end
+    local df, dt = b.f - a.f, b.t - a.t
+    if df <= 0 or dt <= 0 then return nil, 0 end
+    return df / dt, df
 end
 
 -- "src_fps" is out_fps / multi, i.e. how many source frames per second the lane
@@ -53,36 +102,111 @@ local function verdict(need)
 end
 
 local function report()
-    if done or not t0 then return end
+    if done then return end
     done = true
-    local elapsed = mp.get_time() - t0
-    local frames, eof = count_frames(mp.get_property_number("time-pos") or 0)
+    if timer then timer:stop() end
+
+    -- Playback ended before the rate ever settled: say so explicitly instead of
+    -- silently producing no row (mpv would otherwise look like a plain failure).
+    if not t0 then
+        local secs = t_play and (mp.get_time() - t_play) or 0
+        print(string.format("[bench] %s aborted: frame rate never settled in %.1fs", tag, secs))
+        if out ~= "" then
+            local fh = io.open(out, "a")
+            if fh then
+                fh:write(string.format("%s\t%dx%d\t%d\t-\t-\t-\t-\twarmup-unfinished\n",
+                    tag, w, h, multi))
+                fh:close()
+            end
+        end
+        return
+    end
+
+    local t_end = mp.get_time()
+    local f_end, capped = frames_now()
+    local elapsed = t_end - t0
+    local frames  = f_end - f0
     if elapsed <= 0.05 or frames <= 0 then
         print(string.format("[bench] %s aborted (elapsed=%.3fs frames=%d)", tag, elapsed, frames))
         return
     end
+
     local ofps = frames / elapsed
     local need = multi > 0 and ofps / multi or ofps
     local mark = verdict(need)
-    local note = eof and "clip-eof" or ""
+
+    local notes = { string.format("warm=%.1fs", warm) }
+    if warm_timeout then notes[#notes + 1] = "warm-timeout" end
+    if (not capped) and (not early_quit) then notes[#notes + 1] = "clip-eof" end
+    if elapsed < MEASURE_MIN_S or frames < MEASURE_MIN_F then notes[#notes + 1] = "short" end
+    local note = table.concat(notes, ",")
+
     print(string.format("[bench] %-18s %dx%d multi=%d %5d frames %6.2fs -> %7.1f out fps | %6.1f src fps%s %s",
         tag, w, h, multi, frames, elapsed, ofps, need, mark, note))
     if out ~= "" then
-        local f = io.open(out, "a")
-        if f then
-            f:write(string.format("%s\t%dx%d\t%d\t%d\t%.3f\t%.1f\t%.1f%s\t%s\n",
+        local fh = io.open(out, "a")
+        if fh then
+            fh:write(string.format("%s\t%dx%d\t%d\t%d\t%.3f\t%.1f\t%.1f%s\t%s\n",
                 tag, w, h, multi, frames, elapsed, ofps, need, mark, note))
-            f:close()
+            fh:close()
         end
     end
 end
 
-mp.register_event("playback-restart", function()
-    if t0 then return end
+-- Start the clock: from now on the frame rate is treated as steady state.
+local function start_measure(timeout)
     t0 = mp.get_time()
+    f0 = frames_now()
+    warm = t0 - t_play
+    warm_timeout = timeout or false
+end
+
+-- Two adjacent windows of WARM_WIN agree within WARM_TOL -> the ramp is over.
+-- Both windows need a minimum number of frames, so a very slow lane cannot be
+-- declared stable from a couple of frames.
+local function rate_settled(now)
+    if now - t_play < WARMUP_MIN then return false end
+    local r2, n2 = rate_between(now - WARM_WIN, now)
+    local r1, n1 = rate_between(now - 2 * WARM_WIN, now - WARM_WIN)
+    if not (r1 and r2) then return false end
+    if n1 < WARM_MIN_FRM or n2 < WARM_MIN_FRM then return false end
+    return math.abs(r2 - r1) / math.max(r1, r2) <= WARM_TOL
+end
+
+timer = mp.add_periodic_timer(SAMPLE_PERIOD, function()
+    if done or not t_play then return end
+    local now = mp.get_time()
+    local f = frames_now()
+    add_sample(now, f)
+
+    if not t0 then
+        if rate_settled(now) then
+            start_measure(false)
+        elseif now - t_play >= WARMUP_MAX then
+            -- Still hunting for a flat rate on a very slow lane: measure the
+            -- rest anyway and flag the row instead of losing the run.
+            start_measure(true)
+        end
+        return
+    end
+
+    -- Enough post-settling data: report and stop early so a slow lane does not
+    -- burn the whole --frames budget just to reach the same average.
+    if (now - t0) >= MEASURE_MIN_S and (f - f0) >= MEASURE_MIN_F then
+        early_quit = true
+        report()
+        mp.command("quit")
+    end
+end)
+timer:stop()   -- only runs after playback has started
+
+mp.register_event("playback-restart", function()
+    if t_play then return end
+    t_play = mp.get_time()
     w = mp.get_property_number("video-out-params/w") or 0
     h = mp.get_property_number("video-out-params/h") or 0
     src = mp.get_property_number("container-fps") or mp.get_property_number("video-params/fps") or 0
+    timer:resume()
 end)
 
 mp.register_event("end-file", function() report() end)

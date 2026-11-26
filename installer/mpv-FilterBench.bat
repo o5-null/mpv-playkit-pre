@@ -40,6 +40,8 @@ echo ==   NATIVE   : vf_playkit, D3D11 hwdec straight into D3D12 (DLSS-G)
 echo == Every lane runs the same clip at every resolution and multi;
 echo == the numbers say how many source frames per second each lane takes, and
 echo == + / - marks whether that is enough to keep up with the clip.
+echo == Each run warms up first: the clock starts only after the frame rate has
+echo == settled, so model init / CUDA warm-up is not counted in the numbers.
 echo == Results go to installer\mpv-FilterBench-result.tsv and the machine
 echo == summary plus the result table go to installer\report.txt
 echo ==========================================================
@@ -47,7 +49,9 @@ echo ==========================================================
 :: ---------------- 1. test clip ----------------
 :: Optional, to skip the prompts:
 ::   mpv-FilterBench.bat ["video path"] ["1080p 4k"] [multi]
-:: Without a clip, a 10 s 1080p sample is generated once and cached in %TEMP%.
+:: Without a clip, a 30 s 1080p sample is generated once and cached in %TEMP%.
+:: 30 s so every lane still has a tail to measure after the warm-up: at a high
+:: frame rate a 10 s clip is spent before the rate even settles.
 :: The filters only accept hardware frames, so the synthetic source has to be
 :: written to a file first and decoded with d3d11va afterwards.
 set "CLIP=%~1"
@@ -58,7 +62,7 @@ if defined CLIP (
     goto :clip_ready
 )
 echo.
-echo == No clip needed: press Enter to generate a 10 s 1080p sample
+echo == No clip needed: press Enter to generate a 30 s 1080p sample
 echo == You can also drop a video into this window or paste a full path
 echo == (a real clip is closer to what you actually play)
 set /p "CLIP=Video path (Enter = generate): "
@@ -77,16 +81,16 @@ goto :have_clip
 :gen_clip
 :: mp4 rather than mkv: mkv does not report a frame rate here, the vpy would
 :: then call AssumeFPS(0) and fail with "invalid framerate specified"
-set "CLIP=!BENCH_LOGDIR!\bench-src.mp4"
+set "CLIP=!BENCH_LOGDIR!\bench-src-30s.mp4"
 if exist "!CLIP!" (
     echo == Reusing the previously generated clip; delete it to regenerate
     goto :have_clip
 )
-echo == Generating a 10 s 1920x1080 test clip, this happens only once ...
-mpv.com --no-config --o="!CLIP!" --of=mp4 --ovc=libx264 --ovcopts=preset=veryfast,crf=23 --frames=300 "av://lavfi:testsrc2=s=1920x1080:r=30" <nul >nul 2>&1
+echo == Generating a 30 s 1920x1080 test clip, this happens only once ...
+mpv.com --no-config --o="!CLIP!" --of=mp4 --ovc=libx264 --ovcopts=preset=veryfast,crf=23 --frames=900 "av://lavfi:testsrc2=s=1920x1080:r=30" <nul >nul 2>&1
 if not exist "!CLIP!" (
     :: fall back to NVENC when the build has no libx264
-    mpv.com --no-config --o="!CLIP!" --of=mp4 --ovc=h264_nvenc --frames=300 "av://lavfi:testsrc2=s=1920x1080:r=30" <nul >nul 2>&1
+    mpv.com --no-config --o="!CLIP!" --of=mp4 --ovc=h264_nvenc --frames=900 "av://lavfi:testsrc2=s=1920x1080:r=30" <nul >nul 2>&1
 )
 if not exist "!CLIP!" (
     echo == Generation failed: no usable h264 encoder in this build, pass a video file instead
@@ -182,7 +186,8 @@ echo.
 echo ==========================================================
 echo == Results (out_fps = presented frames per second, src_fps = out_fps / multi)
 echo == + means src_fps covers the clip frame rate, - means it does not
-echo == A row full of dashes means that lane could not run at that multi
+echo == warm= in the note is how many seconds of warm-up were skipped before
+echo == the clock started; a row full of dashes means that lane could not run
 echo ==========================================================
 type "!BENCH_OUT!"
 echo.
