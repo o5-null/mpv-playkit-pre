@@ -620,5 +620,13 @@
   note 里标 `warm-timeout`；整段跑完都没稳态则写一行 `warmup-unfinished` 的横杠行而不是
   静默丢行。极慢车道窗口凑不够 8 帧会走 timeout 分支，但此时尾部本身已稳定，结果仍可用。
   预热逻辑对所有车道一视同仁（VS-DLSSG / VS-VFG / NATIVE），单次运行通常比原来更短。
+- **修订（2026-11-27，帧数取证）**：帧数换算不能在收尾时实时读 `time-pos`——`end-file` 到达时该属性
+  已经卸载成 nil，`est` 变成 0，脚本会退回 `--frames` 的兜底值（于是每行都写 3000 帧、帧率虚高）。
+  现在改为在 `playback-restart` 之后用 `mp.observe_property("time-pos", "number")` 持续缓存最后一个
+  有效值，帧数与计时终点都取这份缓存；计时起点 `t0` 也改用同一缓存的时间戳，保证分子分母对应同一帧区间。
+  实测（993e00d-vsdlssg stage，1080p，multi=2，30 s 合成片）：VS-DLSSG 118–126 out fps（warm≈2.5 s，
+  旧表 314.0，虚高约 2.5×）、VS-VFG 101.7（warm=4.6 s，旧表 188.7）、NATIVE 61.3（warm=4.5 s，
+  旧表 111.9）。帧数估算另用 `--frames=1200/1700/1900` 三档反查：1200/1700 在片尾前被帧上限截停、
+  1900 才吃到 `filter output EOF`，说明真实输出帧数落在 (1700, 1900)，与 `time-pos*30*multi≈1800` 吻合。
 
 

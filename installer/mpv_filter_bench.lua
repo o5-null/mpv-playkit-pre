@@ -52,13 +52,27 @@ local early_quit = false    -- stopped by MEASURE_MIN_* instead of --frames / eo
 local done = false
 local timer
 
+-- Last time-pos we were told about, and when. time-pos is gone once the file is
+-- unloaded, and end-file fires after that, so the final frame count has to come
+-- from the observer: a live read at report time would be nil and the row would
+-- silently fall back to the --frames value (which was exactly the bug that made
+-- EOF runs report 3000 frames).
+local frame_pos = 0
+local frame_pos_t = nil
+
+mp.observe_property("time-pos", "number", function(_, v)
+    if v and v > 0 then
+        frame_pos = v
+        frame_pos_t = mp.get_time()
+    end
+end)
+
 -- Output frames presented so far. time-pos advances with the source, so
 -- pos * src * multi is the interpolated frame count. capped is true when the
 -- --frames limit is what stops the run.
 local function frames_now()
     local want = mp.get_property_number("options/frames") or 0
-    local pos  = mp.get_property_number("time-pos") or 0
-    local est  = (pos > 0 and src > 0 and multi > 0) and (pos * src * multi) or 0
+    local est  = (frame_pos > 0 and src > 0 and multi > 0) and (frame_pos * src * multi) or 0
     if want > 0 and est >= want * 0.98 then
         return want, true
     end
@@ -122,7 +136,9 @@ local function report()
         return
     end
 
-    local t_end = mp.get_time()
+    -- End on the last frame we actually saw, not on the moment the event fired:
+    -- file teardown adds tens of milliseconds, and at EOF time-pos is already gone.
+    local t_end = (frame_pos_t and frame_pos_t > t0) and frame_pos_t or mp.get_time()
     local f_end, capped = frames_now()
     local elapsed = t_end - t0
     local frames  = f_end - f0
@@ -138,7 +154,9 @@ local function report()
     local notes = { string.format("warm=%.1fs", warm) }
     if warm_timeout then notes[#notes + 1] = "warm-timeout" end
     if (not capped) and (not early_quit) then notes[#notes + 1] = "clip-eof" end
-    if elapsed < MEASURE_MIN_S or frames < MEASURE_MIN_F then notes[#notes + 1] = "short" end
+    if (not early_quit) and (elapsed < MEASURE_MIN_S or frames < MEASURE_MIN_F) then
+        notes[#notes + 1] = "short"
+    end
     local note = table.concat(notes, ",")
 
     print(string.format("[bench] %-18s %dx%d multi=%d %5d frames %6.2fs -> %7.1f out fps | %6.1f src fps%s %s",
@@ -154,8 +172,11 @@ local function report()
 end
 
 -- Start the clock: from now on the frame rate is treated as steady state.
+-- t0 is the presentation time of the last frame counted, so that (f_end - f0)
+-- and (t_end - t0) cover exactly the same span - taking the poll's own clock
+-- would add up to a full sample period and skew a 3 s window by ~3 %.
 local function start_measure(timeout)
-    t0 = mp.get_time()
+    t0 = (frame_pos_t and frame_pos_t > t_play) and frame_pos_t or mp.get_time()
     f0 = frames_now()
     warm = t0 - t_play
     warm_timeout = timeout or false
@@ -203,6 +224,8 @@ timer:stop()   -- only runs after playback has started
 mp.register_event("playback-restart", function()
     if t_play then return end
     t_play = mp.get_time()
+    frame_pos = 0
+    frame_pos_t = nil
     w = mp.get_property_number("video-out-params/w") or 0
     h = mp.get_property_number("video-out-params/h") or 0
     src = mp.get_property_number("container-fps") or mp.get_property_number("video-params/fps") or 0
