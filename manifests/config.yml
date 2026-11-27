@@ -92,10 +92,13 @@ presets:
 
 # 原生滤镜段：menu.conf 里插在 VF 滤镜与着色器之间的独立标记区
 # （# >>> playkit-config:native / # <<< playkit-config:native）。
-# 每个条目生成一个二级菜单，multi 的每一档生成一个子项；只有 packs 里列出的
-# 档位才生成——其他包没有对应的 DLL/运行时，宁可整段不出现，也不留点不动的项。
-# 命令固定是 `set hwdec d3d11va; vf set <vf>:multi=N:<params>`：零拷贝只认 D3D11
-# 硬件帧，auto-copy 拿到的是软件帧，滤镜会静默直通（没有 2×，也不报错）。
+# 每个条目只有一条命令，倍率跟随「倍数 (&M)」菜单（不再有倍率子菜单）；只有
+# packs 里列出的档位才生成——其他包没有对应的 DLL/运行时，宁可整段不出现，
+# 也不留点不动的项。
+# 命令固定是 `set hwdec d3d11va; script-message-to <target> native <vf>:<params>`：
+# 倍率由 k7f_multi 在创建滤镜时一并写进 multi，一条命令只初始化一次引擎。
+# 零拷贝只认 D3D11 硬件帧，auto-copy 拿到的是软件帧，滤镜会静默直通（没有 2×，
+# 也不报错），所以必须先切 hwdec。
 native:
   section: 原生滤镜 (&P)
   clear_label: 清空 (&C)
@@ -106,7 +109,8 @@ native:
       label: DLSS 帧生成 (&D)
       packs: [vsdlssg]
       vf: playkit
-      multi: [2, 3, 4, 5, 6]
+      # 套用时把规格发给它，由它注入当前倍数（省略则默认 k7f_multi）
+      target: k7f_multi
       # 打包后必须存在的文件（相对 stage），缺失即构建失败
       file: vs-plugins/vdlssg.dll
       params:

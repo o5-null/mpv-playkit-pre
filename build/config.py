@@ -108,7 +108,8 @@ def load(path: Path = CONFIG_PATH) -> dict:
         if preset.get("multi") not in (None, True):
             common.fail(f"预设 {preset['id']} 的 multi 只能是 true 或省略")
 
-    # 原生滤镜（menu.conf 里的独立段）：条目只能在限定包里出现，且必须给出档位
+    # 原生滤镜（menu.conf 里的独立段）：条目只能在限定包里出现。倍率不再写进命令，
+    # 跟随「倍数」菜单，由 k7f_multi 在创建滤镜时注入，所以这里不收 multi 列表。
     native = data.get("native") or {}
     entries = native.get("entries") or []
     seen: set[str] = set()
@@ -120,9 +121,8 @@ def load(path: Path = CONFIG_PATH) -> dict:
         if eid in seen:
             common.fail(f"配置清单原生滤镜 id 重复: {eid}")
         seen.add(eid)
-        multis = entry.get("multi") or []
-        if not multis or any(not isinstance(m, int) or m < 2 for m in multis):
-            common.fail(f"原生滤镜 {eid} 的 multi 必须是不小于 2 的整数列表")
+        if entry.get("multi"):
+            common.fail(f"原生滤镜 {eid} 不再支持 multi 列表：倍率跟随「倍数」菜单，删掉该字段")
         if not entry.get("packs"):
             common.fail(f"原生滤镜 {eid} 必须写明 packs（没有档位就永远不会生成）")
         unknown = sorted(set(entry["packs"]) - set(packs))
@@ -225,17 +225,20 @@ def render_menu(presets: list[dict], enable: set[str]) -> list[str]:
     return body
 
 
-def _native_command(entry: dict, multi: int) -> str:
-    """原生滤镜的一档命令：先切解码器，再换 vf（顺序不能反）。"""
-    params = [f"multi={multi}"]
-    for key, value in (entry.get("params") or {}).items():
-        params.append(f"{key}={value}")
-    vf = ":".join([entry["vf"], *params])
-    return f"set hwdec d3d11va; vf set {vf}"
+def _native_command(entry: dict) -> str:
+    """原生滤镜条目的命令：先切解码器，再把 vf 规格交给 k7f_multi 套用。
+
+    倍率不写死在命令里：它跟随「倍数」菜单，由 k7f_multi 在创建滤镜时一并注入。
+    这样菜单里只有一个条目，也不会出现"先建滤镜、再改 multi"的二次初始化。
+    """
+    params = [f"{key}={value}" for key, value in (entry.get("params") or {}).items()]
+    spec = ":".join([entry["vf"], *params])
+    target = entry.get("target") or "k7f_multi"
+    return f"set hwdec d3d11va; script-message-to {target} native {spec}"
 
 
 def render_native(native: dict, entries: list[dict]) -> list[str]:
-    """menu.conf 的原生滤镜区：段标题 + 清空 + 每个条目一个二级菜单。
+    """menu.conf 的原生滤镜区：段标题 + 清空 + 每个条目一行（不再有倍率子菜单）。
 
     条目为空（该包没装引擎）时整段不生成，标记区之间留空。
     """
@@ -246,9 +249,7 @@ def render_native(native: dict, entries: list[dict]) -> list[str]:
         body.append(f"\t{native['clear_label']}\t"
                     f"{native.get('clear_command') or 'vf clr playkit'}")
     for entry in entries:
-        body.append(f"\t{entry['label']}")
-        for multi in entry["multi"]:
-            body.append(f"\t\t{multi}× (&{multi})\t{_native_command(entry, multi)}")
+        body.append(f"\t{entry['label']}\t{_native_command(entry)}")
     return body
 
 
@@ -413,6 +414,10 @@ def check(stage: Path, pack: str | None = None) -> None:
         common.fail(f"pack={cfg['name']} 缺少原生滤镜段: {section}")
     if not cfg["native_entries"] and section in menu_text:
         common.fail(f"pack={cfg['name']} 不该出现原生滤镜段（没有可用的引擎）")
+    # 每个条目都要有那条"把规格发给 k7f_multi、倍率由它注入"的命令
+    for entry in cfg["native_entries"]:
+        if _native_command(entry) not in menu_text:
+            common.fail(f"pack={cfg['name']} 的原生滤镜 {entry['id']} 命令没有生成")
 
     # 通用倍数段同理：只有本包启用了会读 user-data 的预设才出现
     multi = cfg["multi"]

@@ -650,5 +650,17 @@
   帧生成的 vpy（`prune_vpy` 会核对），空 stage 会报「启用的 vpy 不在包里」——用 dist 的
   `portable_config` 复制一份当 stage 即可快检，不必整包构建。
 
+## 38. 原生滤镜的倍率跟随「倍数」，不再做子菜单（2026-11-27）
 
-
+- **决策**：`manifests/config.yml` 的 `native.entries[]` 只保留一条命令
+  `set hwdec d3d11va; script-message-to k7f_multi native <vf>:<k=v>…`（新增字段 `target`，缺省为 `k7f_multi`），
+  去掉 `multi: […]` 与 2×–6× 的二级菜单。倍率由 `k7f_multi.lua` 应用：收到 `native` 消息后
+  把当前倍数拼进 `playkit:multi=N:…`，一次 `vf set` 建链；全局未设定（`multi=nil`）时用
+  `NATIVE_DEFAULT = 2`。`validate()` 对残留的 `multi` 字段直接 fail，`check()` 新增
+「每条目的 `_native_command()` 必须出现在 `menu.conf`」的断言。
+- **原因**：菜单里同时存在「倍数 (&M)」与原生滤镜的 2×– 6×，两处都要维护、
+  容易不一致；而先按 6× 建链再改成 N× 会让 vf_playkit 初始化两次。现在倍率只有
+  `k7f_multi.lua` 一个来源，且在同一条 `vf set` 里生效。原生滤镜没有“不指定”状态，
+  `vf_playkit` 自带默认 6× 对 10 GB 卡太激进，所以未设定时取 2×。
+- **边界 / 代价**：`k7f_multi.lua` 对 `playkit` 条目现在始终写 `multi`，不再“删键回到
+  插件默认”；「清空」仍是 `vf clr playkit; set hwdec auto-copy`，不经过 `k7f_multi`。
