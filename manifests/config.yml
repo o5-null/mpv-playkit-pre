@@ -25,42 +25,6 @@ presets:
     label: 预设 补帧 MVTools_快速
     requires: mvtools
 
-  - id: rife_dml
-    key: "@"
-    vpy: vs/MEMC_RIFE_DML.vpy
-    label: 预设 补帧 RIFE_DX12
-    requires: vsmlrt DirectML
-
-  - id: drba_dml
-    key: SHARP
-    vpy: vs/MEMC_DRBA_DML.vpy
-    label: 预设 补帧 DRBA_DX12
-    requires: vsmlrt DirectML
-
-  - id: rife_nv
-    key: "$"
-    vpy: vs/MEMC_RIFE_NV.vpy
-    label: 预设 补帧 RIFE_RTX (DLC-vsNV)
-    requires: vsmlrt TensorRT
-
-  - id: drba_nv
-    key: "%"
-    vpy: vs/MEMC_DRBA_NV.vpy
-    label: 预设 补帧 DRBA_RTX (DLC-vsNV)
-    requires: vsmlrt TensorRT
-
-  - id: uai_dml
-    key: "^"
-    vpy: vs/MIX_UAI_DML.vpy
-    label: 预设 自定义AI UAI_DX12
-    requires: vsmlrt DirectML
-
-  - id: uai_nv_trt
-    key: "&"
-    vpy: vs/MIX_UAI_NV_TRT.vpy
-    label: 预设 自定义AI UAI_RTX (DLC-vsNV)
-    requires: vsmlrt TensorRT
-
   # 下面四个是 vs-dlssg 的帧生成引擎，插件（vdlssg / vxessfg / vvfg / vfsr4）
   # 由 manifests/packs/vsdlssg.yml 装进 vs-plugins/，其他包不可用。
   - id: dlssg

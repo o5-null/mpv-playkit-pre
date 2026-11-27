@@ -711,3 +711,23 @@
 - **边界 / 代价**：菜单命令依赖 `k7f_vpypar` 脚本已加载；面板不认识的键会静默忽略，
   错误只在 mpv 日志里。预设本身不再自包含（`vf` 属性由面板书写），因此 `check()` 对 vpy
   数量与标记区的校验仍照旧。
+
+## 42. 删除六个依赖 vsmlrt 的旧预设（2026-11-28）
+
+- **决策**：从 `manifests/config.yml` 的 `presets` 里删除 `rife_dml` / `drba_dml` / `rife_nv` /
+  `drba_nv` / `uai_dml` / `uai_nv_trt`。它们只被已移除的 `vs-mlrt` 档启用，删档后没有任何包
+  会打开它们，留着只会让清单里多六段永远不生成菜单的配置。
+- **原因**：这些预设的 vpy（`MEMC_RIFE_NV` / `MEMC_DRBA_NV` / `MIX_UAI_*` 等）依赖
+  `Lib/site-packages/vsmlrt` 与六族模型，包内已不再提供；继续保留等于给用户一个点了就报错的入口。
+- **边界**：自己装 vsmlrt 的用户仍可在 K7sfunc 的 `PLAYKIT_*` 层直接用这些算子，
+  只是不再有开箱即用的菜单预设。`requires: vsmlrt` 的注释文案随之消失。
+
+## 43. mpv.conf 按源 gamma 切换 target-peak（2026-11-28）
+
+- **决策**：在 `portable_config/mpv.conf` 末尾加两个 profile：
+  `[hdr-peak]`（`p["video-params/gamma"]` 为 `pq` 或 `hlg`）设 `target-peak=1000`，
+  `[sdr-peak]`（两者都不是）设 `target-peak=203`，两者都 `profile-restore=copy`。
+- **原因**：mpv 的 `target-peak` 默认 `auto`，HDR 源上按显示设备上报的峰值走；固定 1000
+  可避免显示器上报虚高时整体压暗，SDR 固定 203 nit 参考白，与 BT.2408 的 SDR 参考一致。
+- **边界**：`target-peak` 取值 10–10000（对其 `--list-options` 实测）；`profile-cond` 是 Lua
+  表达式，音频/图片没有 `video-params/gamma` 时取到 nil，会落到 `[sdr-peak]`，对无视频播放无影响。
