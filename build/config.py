@@ -79,11 +79,18 @@ def load(path: Path = CONFIG_PATH) -> dict:
         common.fail(f"配置清单缺少 presets: {path}")
     ids: set[str] = set()
     keys: set[str] = set()
-    vpys: set[str] = set()
+    stacks: set[tuple[str, ...]] = set()
     for preset in presets:
-        for field in ("id", "key", "vpy", "label"):
+        for field in ("id", "key", "label"):
             if not preset.get(field):
                 common.fail(f"配置清单的预设缺少 {field}: {preset}")
+        # 一个预设可以是"叠加"：vpys 列出 2~3 个 vpy（插帧 → 超分 → 时序），
+        # 旧的单脚本写法（vpy）继续支持，内部统一成列表。
+        vpys = preset.get("vpys") or ([preset["vpy"]] if preset.get("vpy") else [])
+        if not vpys:
+            common.fail(f"配置清单的预设缺少 vpy/vpys: {preset}")
+        preset["vpys"] = list(vpys)
+        preset.setdefault("vpy", vpys[0])
         pid = preset["id"]
         if pid in ids:
             common.fail(f"配置清单预设 id 重复: {pid}")
@@ -91,9 +98,13 @@ def load(path: Path = CONFIG_PATH) -> dict:
         if preset["key"] in keys:
             common.fail(f"配置清单按键重复: {preset['key']}（{pid}）")
         keys.add(preset["key"])
-        if preset["vpy"] in vpys:
-            common.fail(f"配置清单 vpy 重复: {preset['vpy']}")
-        vpys.add(preset["vpy"])
+        # 同一组叠加只允许出现一次（单个 vpy 可以出现在多个预设里，比如
+        # "只补帧"和"补帧+超分+时序"共用 MEMC_RIFE_AJI.vpy）。
+        # 面板预设（panel_set）共用 MIX_AJI.vpy，靠层/引擎区分，所以签名带上它。
+        sig = tuple(preset["vpys"]) + tuple(preset.get("panel_set") or ())
+        if sig in stacks:
+            common.fail(f"配置清单 preset 的 vpy 组合重复: {pid}")
+        stacks.add(sig)
 
     packs = data.get("packs") or {}
     if DEFAULT_PACK not in packs:
@@ -187,11 +198,48 @@ def _display_width(text: str) -> int:
     return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1 for ch in text)
 
 
+PANEL_TARGET = "k7f_vpypar"
+
+
+def _panel_command(preset: dict) -> str:
+    """交给参数面板（k7f_vpypar）的预设：先清链，再把层/引擎写进面板状态并重建。
+
+    面板自己会用 `set_property_native('vf', …)` 写回一条 vapoursynth 条目，所以这里
+    不能内联 user-data（vf 的字符串形式解析不了带 = 的值，mpv 会直接报参数错误）。
+    """
+    target = preset.get("panel") or PANEL_TARGET
+    parts = ["set hwdec auto-copy", 'vf set ""']
+    for kv in preset.get("panel_set") or []:
+        parts.append(f"script-message-to {target} set {kv}")
+    parts.append(f"script-message-to {target} apply")
+    return "; ".join(parts)
+
+
 def _vf_command(preset: dict) -> str:
+    if preset.get("panel_set") or preset.get("panel"):
+        return _panel_command(preset)
     # 先确保解码器交的是 CPU 帧：用过原生滤镜（hwdec=d3d11va）之后，VS 滤镜
     # 直接吃 D3D11 帧会失败。值没变时 mpv 不会真的重设（m_option_equal 判等），
     # 所以平时这条前缀没有额外代价。
-    return f'set hwdec auto-copy; vf set vapoursynth="~~/{preset["vpy"]}"'
+    # vpys 有多个条目时就是一条叠加链（插帧 → 超分 → 时序），后面的用 vf append。
+    vpys = preset.get("vpys") or [preset["vpy"]]
+    chain = [f'vf set vapoursynth="~~/{vpys[0]}"']
+    chain += [f'vf append vapoursynth="~~/{p}"' for p in vpys[1:]]
+    return "set hwdec auto-copy; " + "; ".join(chain)
+
+
+def _preset_vpys(preset: dict) -> list[str]:
+    return preset.get("vpys") or [preset["vpy"]]
+
+
+def _keep_vpys(presets: list[dict], enable: set[str]) -> set[str]:
+    """本包要保留的 vpy 文件名（叠加预设会带多个）。"""
+    keep: set[str] = set()
+    for preset in presets:
+        if preset["id"] not in enable:
+            continue
+        keep.update(Path(p).name for p in _preset_vpys(preset))
+    return keep
 
 
 def render_input(presets: list[dict], enable: set[str]) -> list[str]:
@@ -372,7 +420,7 @@ def apply(stage: Path, pack: str | None = None) -> None:
     splice_block(menu, render_vpypar_menu(cfg["vpypar"], cfg["vpypar_on"]),
                  VPY_BEGIN + MENU_HIDDEN, VPY_END + MENU_HIDDEN)
 
-    keep = {Path(p["vpy"]).name for p in presets if p["id"] in enable}
+    keep = _keep_vpys(presets, enable)
     removed = prune_vpy(_config_root(stage), keep)
     common.log(f"配置清单: pack={cfg['name']}，启用 {len(keep)} 个预设，"
                f"原生滤镜 {len(cfg['native_entries'])} 项，移除 {removed} 个未启用的 vpy")
@@ -450,7 +498,7 @@ def check(stage: Path, pack: str | None = None) -> None:
         if not (stage / rel).exists():
             common.fail(f"pack={cfg['name']} 的原生滤镜 {entry['id']} 缺少 {rel}")
 
-    keep = {Path(p["vpy"]).name for p in cfg["presets"] if p["id"] in cfg["enable"]}
+    keep = _keep_vpys(cfg["presets"], cfg["enable"])
     vs_dir = cfg_root / VS_REL
     actual = {p.name for p in vs_dir.glob("*.vpy")} if vs_dir.is_dir() else set()
     missing = sorted(keep - actual)

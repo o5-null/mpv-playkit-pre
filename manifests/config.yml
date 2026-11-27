@@ -15,7 +15,8 @@
 # 生成器是 build/config.py；改配置优先改这里，不要直接改标记区里的内容。
 schema: 1
 
-# 预设表：顺序即生成顺序。key 与 vpy 都不可重复。
+# 预设表：顺序即生成顺序。key 不可重复；同一个 vpy 可以出现在多个预设里
+# （例如"只补帧"与"补帧+超分+时序"共用 MEMC_RIFE_AJI.vpy），但同一组 vpys 只出现一次。
 # requires 只用于解释"为什么这个包没启用"，会写进被注释掉的行里。
 presets:
   - id: mvt_lq
@@ -90,6 +91,49 @@ presets:
     requires: vsdlssg 引擎 vfsr4
     multi: true
 
+  # 下面四个是 aji（AnimeJaNai libaji）的叠层，全部走同一个脚本 vs/MIX_AJI.vpy：
+  # mpv 一条 vf 链只允许一个 vapoursynth 实例，插帧/超分/时序只能在同一个 vpy 里串联。
+  # 预设本身不写滤镜，而是把「层与补帧引擎」交给「设置 (&V)」面板（k7f_vpypar.lua），
+  # 由它写进 user-data 并重建那一条条目 —— 模型、后端、阈值、显卡、日志都是全局项，
+  # 改一次对三层同时生效。
+  # 运行时（vsaji.dll + aji.dll + 模型）由 manifests/packs/vs-aji.yml 装到
+  # vs-plugins/aji/，同时复制 vsaji.dll 到 Lib/site-packages/vapoursynth/plugins/ 供 R82+ 自动加载。
+  - id: aji_rife
+    key: "+"
+    vpy: vs/MIX_AJI.vpy
+    panel_set:
+      - stages f
+      - framegen vaji
+    label: 预设 补帧 RIFE (Aji 2-6×)
+    requires: vsaji 运行时
+    multi: true
+
+  - id: aji_upscale
+    key: "="
+    vpy: vs/MIX_AJI.vpy
+    panel_set:
+      - stages u
+    label: 预设 超分 Aji 2×
+    requires: vsaji 运行时
+
+  - id: aji_tfix
+    key: "?"
+    vpy: vs/MIX_AJI.vpy
+    panel_set:
+      - stages t
+    label: 预设 时序 Aji
+    requires: vsaji 运行时
+
+  - id: aji_stack
+    key: "<"
+    vpy: vs/MIX_AJI.vpy
+    panel_set:
+      - stages fut
+      - framegen vaji
+    label: 预设 叠加 补帧+超分+时序 (Aji)
+    requires: vsaji 运行时
+    multi: true
+
 # 原生滤镜段：menu.conf 里紧跟 VS 预设区、在着色器之前的独立标记区
 # （# >>> playkit-config:native / # <<< playkit-config:native）。
 # 每个条目只有一条命令，倍率跟随「倍数 (&M)」菜单（不再有倍率子菜单）；只有
@@ -107,7 +151,7 @@ native:
   entries:
     - id: dlssg_native
       label: DLSS 帧生成 (&D)
-      packs: [vsdlssg]
+      packs: [vsdlssg, vs-aji, dev]
       vf: playkit
       # 套用时把规格发给它，由它注入当前倍数（省略则默认 k7f_multi）
       target: k7f_multi
@@ -158,9 +202,30 @@ packs:
       - vfg
       - fsr4
 
-  vs-mlrt:
+  # aji 档（全量包）：vsdlssg 的全部预设 + aji 三层叠加/超分/时序。
+  # 帧生成引擎运行时与 aji 运行时/模型都由 manifests/packs/vs-aji.yml 装配。
+  vs-aji:
     enable:
       - mvt_lq
-      - rife_nv
-      - drba_nv
-      - uai_nv_trt
+      - dlssg
+      - xessfg
+      - vfg
+      - fsr4
+      - aji_rife
+      - aji_upscale
+      - aji_tfix
+      - aji_stack
+
+  # 本地 `dev\mpv` 用的全集：vsdlssg 那套 + aji 三层，方便一个播放器里来回切换。
+  # 只用于 `python -m build config --stage dev\mpv --pack dev`，不进任何发行归档。
+  dev:
+    enable:
+      - mvt_lq
+      - dlssg
+      - xessfg
+      - vfg
+      - fsr4
+      - aji_rife
+      - aji_upscale
+      - aji_tfix
+      - aji_stack

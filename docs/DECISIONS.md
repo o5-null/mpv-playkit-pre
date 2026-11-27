@@ -695,3 +695,19 @@
   需要用户自备。`vsaji` 组件资产来自 vsaji 仓库的 `scripts/make-release.py` 产物
   （zip 根下为 `aji/`，含依赖与 8 个模型），装到 `vs-plugins/aji/` 后再把
   `vsaji.dll` 复制到 `Lib/site-packages/vapoursynth/plugins/`。
+
+## 41. aji 预设改由面板建链，不再直接写 vf 命令（2026-11-28）
+
+- **决策**：`manifests/config.yml` 的 `aji_rife` / `aji_upscale` / `aji_tfix` / `aji_stack`
+  统一只声明 `vpy: vs/MIX_AJI.vpy` 与 `panel_set`（`stages` / `framegen`），生成的菜单命令是
+  `set hwdec auto-copy; vf set ""; script-message-to k7f_vpypar set …; script-message-to k7f_vpypar apply`，
+  由面板统一写出唯一一条 `vapoursynth` 滤镜。`build/config.py` 新增 `_panel_command()`，
+  预设去重键改为 `vpys + panel_set`。
+- **原因**：mpv 的 `vf_vapoursynth` 同时只允许一个实例（销毁时断言
+  `!p->in_node_active`，见 mpv-src `video/filter/vf_vapoursynth.c:582`），所以补帧 + 超分 +
+  时序必须写进同一个 vpy（`MIX_AJI.vpy` 内部串联）。另外 vf 字符串形式无法携带带 `=` 的
+  `user-data`（`--vf=vapoursynth=X:user-data=stages=fut` 必然解析失败），参数只能由 Lua 用
+  `set_property_native('vf', …)` 传字典。
+- **边界 / 代价**：菜单命令依赖 `k7f_vpypar` 脚本已加载；面板不认识的键会静默忽略，
+  错误只在 mpv 日志里。预设本身不再自包含（`vf` 属性由面板书写），因此 `check()` 对 vpy
+  数量与标记区的校验仍照旧。
