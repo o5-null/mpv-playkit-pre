@@ -42,6 +42,8 @@ echo == the numbers say how many source frames per second each lane takes, and
 echo == + / - marks whether that is enough to keep up with the clip.
 echo == Each run warms up first: the clock starts only after the frame rate has
 echo == settled, so model init / CUDA warm-up is not counted in the numbers.
+echo == A run still going after 40 s is written off as run-timeout (usually a
+echo == lane that spilled out of VRAM), so one bad cell cannot stall the sweep.
 echo == Results go to installer\mpv-FilterBench-result.tsv and the machine
 echo == summary plus the result table go to installer\report.txt
 echo ==========================================================

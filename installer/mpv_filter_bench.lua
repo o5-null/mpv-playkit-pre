@@ -41,6 +41,9 @@ local WARM_TOL      = 0.08  -- two consecutive windows must agree within 8 %
 local WARM_MIN_FRM  = 8     -- a window needs this many output frames to count
 local MEASURE_MIN_S = 3.0   -- keep measuring at least this long after settling
 local MEASURE_MIN_F = 60    -- ... or this many output frames, whichever is later
+local RUN_MAX_S     = 40.0  -- hard cap on one run; past this the cell is written off
+                            -- (a lane that falls into VRAM paging crawls at <1 fps
+                            -- and would otherwise sit here for minutes)
 
 local t_play = nil          -- internal time when playback started
 local w, h, src = 0, 0, 0
@@ -115,6 +118,20 @@ local function verdict(need)
     return ""
 end
 
+-- One row of dashes: the lane produced no usable rate. The note says why, so
+-- the table shows a skipped cell instead of an inflated number.
+local function write_dash(note, msg)
+    print(string.format("[bench] %s aborted: %s", tag, msg or note))
+    if out ~= "" then
+        local fh = io.open(out, "a")
+        if fh then
+            fh:write(string.format("%s\t%dx%d\t%d\t-\t-\t-\t-\t%s\n",
+                tag, w, h, multi, note))
+            fh:close()
+        end
+    end
+end
+
 local function report()
     if done then return end
     done = true
@@ -124,15 +141,8 @@ local function report()
     -- silently producing no row (mpv would otherwise look like a plain failure).
     if not t0 then
         local secs = t_play and (mp.get_time() - t_play) or 0
-        print(string.format("[bench] %s aborted: frame rate never settled in %.1fs", tag, secs))
-        if out ~= "" then
-            local fh = io.open(out, "a")
-            if fh then
-                fh:write(string.format("%s\t%dx%d\t%d\t-\t-\t-\t-\twarmup-unfinished\n",
-                    tag, w, h, multi))
-                fh:close()
-            end
-        end
+        write_dash("warmup-unfinished",
+            string.format("frame rate never settled in %.1fs", secs))
         return
     end
 
@@ -197,6 +207,20 @@ end
 timer = mp.add_periodic_timer(SAMPLE_PERIOD, function()
     if done or not t_play then return end
     local now = mp.get_time()
+
+    -- Hard cap. A lane that drops into VRAM paging crawls along at a fraction of
+    -- a frame per second: it never settles, and waiting for MEASURE_MIN_F would
+    -- hold the whole sweep for minutes to produce a meaningless number. Write the
+    -- cell off and move on.
+    if now - t_play >= RUN_MAX_S then
+        done = true
+        timer:stop()
+        write_dash(string.format("warm=%.1fs,run-timeout", now - t_play),
+            string.format("exceeded the %.0fs run cap", RUN_MAX_S))
+        mp.command("quit")
+        return
+    end
+
     local f = frames_now()
     add_sample(now, f)
 
