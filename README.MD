@@ -41,7 +41,7 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 | 包 | 内容 | 体积 | 需要的硬件 |
 | --- | --- | --- | --- |
 | `...-windows-x64-vsdlssg.7z`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / FSR-FG 四套引擎运行时（含 sm86 解锁） | ~338 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
-| `...-windows-x64-vs-aji.7z`（**完整版**） | 完整播放器 + 四个帧生成插件 DLL 与四套引擎运行时（即 vsdlssg 档的全部内容）+ aji（AnimeJaNai libaji）插件：RIFE 补帧 / 2× 超分 / 时序处理 / 三层叠加，包内自带 TensorRT / TensorRT-RTX 运行库与 8 个超分 / 时序模型 | ~750 MB | NVIDIA RTX（aji 建议 20/30 系以上） |
+| `...-windows-x64-vs-aji.7z`（**完整版**） | 完整播放器 + 四个帧生成插件 DLL 与四套引擎运行时（即 vsdlssg 档的全部内容）+ aji（AnimeJaNai libaji）插件：RIFE 补帧 / 2× 超分 / 时序处理 / 三层叠加，包内自带 TensorRT / TensorRT-RTX 运行库与 8 个超分 / 时序模型 | ~510 MB | NVIDIA RTX（aji 建议 20/30 系以上） |
 
 > 包是 `7z`（最高压缩率 LZMA2），需要 [7-Zip](https://www.7-zip.org/) 或兼容工具解压；
 > 解压后是 `mpv-playkit-pre-<版本>-windows-x64/` 这一个目录。

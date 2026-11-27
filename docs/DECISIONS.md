@@ -690,7 +690,7 @@
   需要单独的 vsmlrt 插件、API4 移植轮子与六族模型，维护两套推理栈没有收益；用户要 aji 时
   也不该再为凑齐四颗帧生成引擎去跨包拷目录。合成一个完整版后，两个交付包是
   「默认档」与「默认档 + aji」，选包只按要不要 aji 决定。
-- **边界 / 代价**：`vs-aji` 约 750 MB，比原 `vs-mlrt` 大；K7sfunc 的 `CUGAN_NV` /
+- **边界 / 代价**：`vs-aji` 约 510 MB（vsdlssg 约 338 MB + aji 资产 175 MB），比原 `vs-mlrt` 小；K7sfunc 的 `CUGAN_NV` /
   `DPIR_*_NV` / `ARTCNN_NV` / `RIFE_NV` / `DRBA_NV` 不再随包提供运行库与模型，
   需要用户自备。`vsaji` 组件资产来自 vsaji 仓库的 `scripts/make-release.py` 产物
   （zip 根下为 `aji/`，含依赖与 8 个模型），装到 `vs-plugins/aji/` 后再把
