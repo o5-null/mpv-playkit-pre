@@ -4,10 +4,10 @@
   "components": {
     "k7sfunc": {
       "version": "1.9.0+pre.10",
-      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/40d1a115a9fa1155ca78c1a5f443dc52aa403222",
-      "sha256": "a04562fd846769a2fad55bfef7956e6c5b6477a7a08ce788eedf71877da87838",
-      "size": 520009,
-      "pinned_at": "2026-11-25T18:26:43Z"
+      "url": "https://codeload.github.com/o5-null/K7sfunc/tar.gz/060962b24853ea9491695a0d348a1eccf4704ea8",
+      "sha256": "de83091faad46442bdda5b2bfbb6de1c7600c2182e1ea2c783f77f1a7c0869ec",
+      "size": 546287,
+      "pinned_at": "2026-11-27T18:28:45Z"
     },
     "mpv": {
       "version": "mpv-x86_64-playkit-2026.11.23-2",
