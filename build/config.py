@@ -45,6 +45,10 @@ NATIVE_END = "# <<< playkit-config:native"
 MULTI_BEGIN = "# >>> playkit-config:multi（由 manifests/config.yml 生成，勿手改）"
 MULTI_END = "# <<< playkit-config:multi"
 
+# 补帧参数区（menu.conf 里紧跟通用倍数之后；input_uosc.conf 里紧跟 VF 预设之后）
+VPY_BEGIN = "# >>> playkit-config:vpypar（由 manifests/config.yml 生成，勿手改）"
+VPY_END = "# <<< playkit-config:vpypar"
+
 # menu.conf 的标记行与禁用项要带状态：select.lua 不认 # 注释，任何一行都会变成
 # 菜单项；hidden=true 让它不画，disabled=true 让它画成灰色且点不动。
 MENU_HIDDEN = "\thidden=true"
@@ -136,6 +140,13 @@ def load(path: Path = CONFIG_PATH) -> dict:
             common.fail("配置清单的 multi.entries 必须是不小于 2 的整数列表")
         if len(set(steps)) != len(steps):
             common.fail("配置清单的 multi.entries 有重复值")
+
+    # 补帧参数面板（可选段）：菜单只是入口，参数状态与套用都在 k7f_vpypar.lua 里
+    vpypar = data.get("vpypar") or {}
+    if vpypar:
+        for field in ("section", "target", "key"):
+            if not vpypar.get(field):
+                common.fail(f"配置清单的 vpypar 段缺少 {field}: {vpypar}")
     return data
 
 
@@ -149,9 +160,10 @@ def pack_config(name: str | None) -> dict:
     native = data.get("native") or {}
     entries = [e for e in native.get("entries") or [] if key in e["packs"]]
     multi = data.get("multi") or {}
-    # 通用倍数只在"本包启用了会读 user-data 的预设"时才有意义（base 包是 MVTools，
-    # 不解析 user-data，生成了也只会是点不动的死选项）
-    multi_on = bool(multi) and any(
+    vpypar = data.get("vpypar") or {}
+    # 通用倍数与补帧参数都只在"本包启用了会读 user-data 的预设"时才有意义
+    # （base 包是 MVTools，不解析 user-data，生成了也只会是点不动的死选项）
+    framegen_on = any(
         p.get("multi") for p in data["presets"] if p["id"] in packs[key].get("enable") or []
     )
     return {
@@ -161,7 +173,9 @@ def pack_config(name: str | None) -> dict:
         "native": native,
         "native_entries": entries,
         "multi": multi,
-        "multi_on": multi_on,
+        "multi_on": bool(multi) and framegen_on,
+        "vpypar": vpypar,
+        "vpypar_on": bool(vpypar) and framegen_on,
     }
 
 
@@ -258,6 +272,30 @@ def render_multi(multi: dict, enabled: bool) -> list[str]:
     return body
 
 
+def render_vpypar_input(vpypar: dict, enabled: bool) -> list[str]:
+    """input_uosc.conf 的补帧参数快捷键：只发消息，具体参数在 OSD 面板里改。"""
+    if not enabled:
+        return []
+    command = f"script-binding {vpypar['target']}/menu"
+    pad = " " * max(2, INPUT_CMD_COL - len(command))
+    return [f" {vpypar['key']:<18}{command}{pad}#! VF 滤镜 > 补帧参数"]
+
+
+def render_vpypar_menu(vpypar: dict, enabled: bool) -> list[str]:
+    """menu.conf 的补帧参数区：段标题 + 打开面板 + 查看当前参数。
+
+    面板本身由 k7f_vpypar.lua 用 input.select 画，菜单只负责给出入口。
+    """
+    if not enabled:
+        return []
+    target = vpypar["target"]
+    return [
+        vpypar["section"],
+        f"\t打开参数面板 (&A)\tscript-binding {target}/menu",
+        f"\t当前参数 (&S)\tscript-message-to {target} status",
+    ]
+
+
 def _read_lines(path: Path) -> tuple[list[str], str]:
     """读文本并按原文件的行尾风格拆分（这两份基准文件是 CRLF）。"""
     raw = path.read_bytes().decode("utf-8")
@@ -318,6 +356,9 @@ def apply(stage: Path, pack: str | None = None) -> None:
     # 目录要保留，缓存内容由 .gitignore 挡在仓库外。
     common.copy_tree(BASE_DIR, _config_root(stage), ignore=["saved-props.json"])
     splice_block(_config_root(stage) / INPUT_NAME, render_input(presets, enable))
+    splice_block(_config_root(stage) / INPUT_NAME,
+                 render_vpypar_input(cfg["vpypar"], cfg["vpypar_on"]),
+                 VPY_BEGIN, VPY_END)
 
     menu = _config_root(stage) / MENU_NAME
     # 标记行本身也要藏起来，否则会变成两个打不开的空菜单
@@ -327,6 +368,8 @@ def apply(stage: Path, pack: str | None = None) -> None:
                  NATIVE_BEGIN + MENU_HIDDEN, NATIVE_END + MENU_HIDDEN)
     splice_block(menu, render_multi(cfg["multi"], cfg["multi_on"]),
                  MULTI_BEGIN + MENU_HIDDEN, MULTI_END + MENU_HIDDEN)
+    splice_block(menu, render_vpypar_menu(cfg["vpypar"], cfg["vpypar_on"]),
+                 VPY_BEGIN + MENU_HIDDEN, VPY_END + MENU_HIDDEN)
 
     keep = {Path(p["vpy"]).name for p in presets if p["id"] in enable}
     removed = prune_vpy(_config_root(stage), keep)
@@ -342,9 +385,11 @@ def check(stage: Path, pack: str | None = None) -> None:
     # input_uosc.conf 是按键表，# 注释安全；menu.conf 由 select.lua 每行都当菜单项
     for name, begin_text, end_text in (
         (INPUT_NAME, BEGIN, END),
+        (INPUT_NAME, VPY_BEGIN, VPY_END),
         (MENU_NAME, BEGIN + MENU_HIDDEN, END + MENU_HIDDEN),
         (MENU_NAME, NATIVE_BEGIN + MENU_HIDDEN, NATIVE_END + MENU_HIDDEN),
         (MENU_NAME, MULTI_BEGIN + MENU_HIDDEN, MULTI_END + MENU_HIDDEN),
+        (MENU_NAME, VPY_BEGIN + MENU_HIDDEN, VPY_END + MENU_HIDDEN),
     ):
         path = cfg_root / name
         if not path.exists():
@@ -376,6 +421,20 @@ def check(stage: Path, pack: str | None = None) -> None:
             common.fail(f"pack={cfg['name']} 缺少通用倍数段: {multi['section']}")
         if not cfg["multi_on"] and multi["section"] in menu_text:
             common.fail(f"pack={cfg['name']} 不该出现通用倍数段（没有会读 user-data 的预设）")
+
+    # 补帧参数面板同理；快捷键与菜单入口要一起出现，否则菜单里点开也没法按键打开
+    vpypar = cfg["vpypar"]
+    if vpypar:
+        if cfg["vpypar_on"] and vpypar["section"] not in menu_text:
+            common.fail(f"pack={cfg['name']} 缺少补帧参数段: {vpypar['section']}")
+        if not cfg["vpypar_on"] and vpypar["section"] in menu_text:
+            common.fail(f"pack={cfg['name']} 不该出现补帧参数段（没有会读 user-data 的预设）")
+        input_text = (cfg_root / INPUT_NAME).read_text(encoding="utf-8")
+        binding = f"script-binding {vpypar['target']}/menu"
+        if cfg["vpypar_on"] and binding not in input_text:
+            common.fail(f"pack={cfg['name']} 缺少补帧参数快捷键: {binding}")
+        if not cfg["vpypar_on"] and binding in input_text:
+            common.fail(f"pack={cfg['name']} 不该出现补帧参数快捷键（没有会读 user-data 的预设）")
     for entry in cfg["native_entries"]:
         rel = entry.get("file")
         if not rel:

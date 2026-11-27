@@ -635,4 +635,20 @@
   在 10 GB 卡上会爆显存转入共享内存分页，帧率塌到 0.2–1.2 fps，`warm-timeout` 之后照样要测满 60 帧，
   单格耗时 52–255 s 且数字没有意义；现在这类格子 40 s 内收工，表里显示横杠，整个 sweep 不会被一格拖死。
 
+## 37. 「补帧参数」面板的入口由配置清单生成，与 multi 同进同退（2026-11-27）
+
+- **决策**：`manifests/config.yml` 新增可选段 `vpypar`（`section / target / key`），
+  `build/config.py` 据此渲染两处新标记区 `playkit-config:vpypar`：
+  `input_uosc.conf` 的 ` V  script-binding k7f_vpypar/menu  #! VF 滤镜 > 补帧参数`，
+  以及 `menu.conf` 的「补帧参数 (&V)」子菜单（打开面板 / 当前参数）。
+  生成条件与 `multi` 段一致：本档位包启用了任一带 `multi: true` 的预设（即真的带帧生成）才出现，
+  `base` 档位包两处都不生成。`check()` 同时校验「该出现时必须出现、不该出现时必须没有」。
+- **原因**：入口属于打包链，不属于功能本身——K7sfunc fork 不知道某个档位包里有没有帧生成，
+  而 `portable_config/` 的标记区按硬约束 1 只能由清单生成。`V` 在本仓库没有别的绑定
+  （`v` 已给音频延迟），四个预设键位（`! @ $ % ^ & * ( ) _`）也不受影响。
+- **边界 / 代价**：`vpypar` 段缺字段会被 `validate()` 直接拒绝；`config` 子命令要求 stage 里已有
+  帧生成的 vpy（`prune_vpy` 会核对），空 stage 会报「启用的 vpy 不在包里」——用 dist 的
+  `portable_config` 复制一份当 stage 即可快检，不必整包构建。
+
+
 
