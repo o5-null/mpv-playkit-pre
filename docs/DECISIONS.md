@@ -664,3 +664,18 @@
   `vf_playkit` 自带默认 6× 对 10 GB 卡太激进，所以未设定时取 2×。
 - **边界 / 代价**：`k7f_multi.lua` 对 `playkit` 条目现在始终写 `multi`，不再“删键回到
   插件默认”；「清空」仍是 `vf clr playkit; set hwdec auto-copy`，不经过 `k7f_multi`。
+
+## 39. 菜单段顺序与「VS 滤镜」改名（2026-11-27）
+
+- **决策**：`menu.conf` 的播放相关段固定为「VS 滤镜 (&F) → 原生滤镜 (&P) → 着色器 (&G) → 倍数 (&M)」，
+  内容仍是各自标记区生成；原「补帧参数 (&V)」段改名为「设置 (&V)」，从 VS 段附近挪到
+  「工具 (&T)」与「关于 (&I)」之间（`input_uosc.conf` 的提示同步为 `#! 设置 > 补帧参数`，
+  键位仍是 `V`）。原「VF 滤镜」统一改名「VS 滤镜」，`config.yml` 的 `vpypar.section`
+  与 `build/config.py` 的提示文案、`check()` 报错文案同步。
+- **原因**：四段都是「给播放链加/换处理」，相邻后菜单里从上到下就是
+  VS 预设 → 原生滤镜 → 着色器 → 倍数 的处理顺序；「补帧参数」只是改正在跑的那条 vpy 的参数，
+  属于设置而不是滤镜选择，放在工具区更符合入口语义。
+- **边界 / 代价**：段顺序由 `portable_config/menu.conf` 基准文件与生成器的标记区共同决定，改顺序要
+  同时改 `menu.conf`、`build/config.py` 的位置注释与 `manifests/config.yml` 的注释；隐藏标记
+  （`hidden=true`）行必须留在各自段的首尾，否则 `check()` 的标记区校验会失败。运行期
+  `menu-data` 里隐藏标记显示为 `state={"hidden"}` 的 submenu 项，属正常现象。

@@ -7,7 +7,7 @@
 #   1. 生成 portable_config/input_uosc.conf 与 portable_config/menu.conf 里的
 #      VF 预设区（标记 # >>> playkit-config:vf 与 # <<< playkit-config:vf 之间）；
 #   2. 生成 menu.conf 里的原生滤镜区（标记 # >>> playkit-config:native 与
-#      # <<< playkit-config:native 之间，插在 VF 滤镜与着色器中间）；
+#      # <<< playkit-config:native 之间，紧跟 VS 预设、在着色器之前）；
 #   3. 生成通用倍数区与补帧参数面板的入口（playkit-config:multi / :vpypar），
 #      它们只在启用了帧生成预设的包里出现；
 #   4. 按各包启用的预设裁剪 portable_config/vs/*.vpy——没启用的预设，vpy 不进包。
@@ -90,7 +90,7 @@ presets:
     requires: vsdlssg 引擎 vfsr4
     multi: true
 
-# 原生滤镜段：menu.conf 里插在 VF 滤镜与着色器之间的独立标记区
+# 原生滤镜段：menu.conf 里紧跟 VS 预设区、在着色器之前的独立标记区
 # （# >>> playkit-config:native / # <<< playkit-config:native）。
 # 每个条目只有一条命令，倍率跟随「倍数 (&M)」菜单（不再有倍率子菜单）；只有
 # packs 里列出的档位才生成——其他包没有对应的 DLL/运行时，宁可整段不出现，
@@ -129,15 +129,15 @@ multi:
   target: k7f_multi
   entries: [2, 3, 4, 5, 6]
 
-# 补帧参数面板：menu.conf 里紧跟通用倍数之后的独立标记区
+# 设置（补帧参数面板）：menu.conf 里在「工具」与「关于」之间的独立标记区
 # （# >>> playkit-config:vpypar / # <<< playkit-config:vpypar），
-# input_uosc.conf 里紧跟 VF 预设（那个按键打开同一个面板）。
+# input_uosc.conf 里紧跟 VS 预设（那个按键打开同一个面板）。
 # 面板由 k7f_vpypar.lua 用 input.select 画：它按当前 vf 链里的补帧脚本自动切换参数表
 # （DLSSG / XeSS-FG / VFG / FSR4 各一份），改动写进 vf 的 user-data 后重建滤镜；
 # 参数存在 ~~/_cache/k7f_vpypar.json，重启后沿用。
 # 与 multi 一样，只在"本包启用了会读 user-data 的预设"时生成。
 vpypar:
-  section: 补帧参数 (&V)
+  section: 设置 (&V)
   target: k7f_vpypar
   key: V
 

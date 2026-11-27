@@ -74,11 +74,11 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 1. **`portable_config/` 是本地维护的基准配置，不是上游镜像**。基准取自 mpv-lazy 最后发版的
    `portable_config`；只有 `portable_config/shaders/` 仍由 `build.sync` 整目录跟随上游
    （`installer/` 已冻结，不同步也不进包）。配置差异一律写进 `manifests/config.yml`：
-   `presets` 定义 VF 预设（按键 / vpy / 名称 / 依赖），`packs` 定义每个档位包启用哪几个；
+   `presets` 定义 VS 预设（按键 / vpy / 名称 / 依赖），`packs` 定义每个档位包启用哪几个；
    `build/config.py` 会把 `input_uosc.conf` 与 `menu.conf` 的标记区重新生成，并裁掉未启用的
    `vs/*.vpy`。**不要手改两份文件标记区里的内容，也不要手写某个包专用的配置副本。**
-   `native` 段生成 `menu.conf` 里"VF 滤镜"与"着色器"之间的原生滤镜块（目前是 `playkit` 滤镜的
-   DLSS 帧生成 2×–6×），只有列出的档位包才出现——没有引擎的包宁可整段没有，也不留点不动的项。
+   `native` 段生成 `menu.conf` 里紧跟"VS 滤镜"、在"着色器"之前的原生滤镜块（目前是 `playkit` 滤镜的
+   DLSS 帧生成，倍率跟随「倍数」菜单），只有列出的档位包才出现——没有引擎的包宁可整段没有，也不留点不动的项。
    `packs.base` 是中间基础 stage 的配置（`assemble` / `smoke` / `verify` 不带 `--pack` 时用它），
    只放 mpv + k7sfunc 基础依赖就能跑的预设，不是交付物；用户拿到的是 `vsdlssg` / `vs-mlrt` 两个包。
    算法/前端功能仍写进 K7sfunc fork（`o5-null/K7sfunc`），本仓库只按 commit 钉它。

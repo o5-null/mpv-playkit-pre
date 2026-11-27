@@ -4,10 +4,10 @@
 跟随上游同步），本模块只做"每个包不一样"的那一点点：
 
 1. 用 `manifests/config.yml` 的预设表重写 `input_uosc.conf` 与 `menu.conf` 里的
-   VF 预设区（标记 `# >>> playkit-config:vf` 与 `# <<< playkit-config:vf` 之间）；
+   VS 预设区（标记 `# >>> playkit-config:vf` 与 `# <<< playkit-config:vf` 之间）；
 2. 用清单的 `native` 段生成 `menu.conf` 的原生滤镜区（标记
    `# >>> playkit-config:native` 与 `# <<< playkit-config:native` 之间，位置在
-   VF 滤镜与着色器中间），只有列出的档位包才会出现；
+   VS 预设之后、着色器之前），只有列出的档位包才会出现；
 3. 按该包启用的预设裁剪 `portable_config/vs/*.vpy`：没启用的预设，vpy 不进包。
 
 标记区外的一切保持基准原样，所以改动都集中在清单里，构建出来的包也能一眼看出
@@ -30,22 +30,22 @@ DEFAULT_PACK = "base"
 BEGIN = "# >>> playkit-config:vf（由 manifests/config.yml 生成，勿手改）"
 END = "# <<< playkit-config:vf"
 
-# VF 预设区的标记行在模板里是缩进一层的（见 portable_config/menu.conf）：select.lua
+# VS 预设区的标记行在模板里是缩进一层的（见 portable_config/menu.conf）：select.lua
 # 按缩进建树，标记行在根层则预设行成了"隐藏标记的子菜单"，而 Windows 原生菜单
 # 遇到 hidden 项会整棵子树丢掉（mpv-src/video/out/win32/menu.c:160 之前就已递归
-# 建好了子菜单，随后 continue 跳过父项，子项随之消失）。缩进到 VF 滤镜之下后，
-# 预设行与标记行同层，落进 VF 滤镜的子菜单，正常显示。
+# 建好了子菜单，随后 continue 跳过父项，子项随之消失）。缩进到 VS 滤镜之下后，
+# 预设行与标记行同层，落进 VS 滤镜的子菜单，正常显示。
 MENU_VF_INDENT = "\t"
 
-# 原生滤镜区（menu.conf 里插在 VF 滤镜与着色器之间）
+# 原生滤镜区（menu.conf 里紧跟 VS 预设区，在着色器之前）
 NATIVE_BEGIN = "# >>> playkit-config:native（由 manifests/config.yml 生成，勿手改）"
 NATIVE_END = "# <<< playkit-config:native"
 
-# 通用倍数区（menu.conf 里紧跟在 VF 预设之后，对所有会读 user-data 的插帧生效）
+# 通用倍数区（menu.conf 里在着色器之后，对所有会读 user-data 的插帧生效）
 MULTI_BEGIN = "# >>> playkit-config:multi（由 manifests/config.yml 生成，勿手改）"
 MULTI_END = "# <<< playkit-config:multi"
 
-# 补帧参数区（menu.conf 里紧跟通用倍数之后；input_uosc.conf 里紧跟 VF 预设之后）
+# 设置区（menu.conf 里在「工具」与「关于」之间；input_uosc.conf 里紧跟 VS 预设之后）
 VPY_BEGIN = "# >>> playkit-config:vpypar（由 manifests/config.yml 生成，勿手改）"
 VPY_END = "# <<< playkit-config:vpypar"
 
@@ -205,7 +205,7 @@ def render_input(presets: list[dict], enable: set[str]) -> list[str]:
         if preset["id"] not in enable:
             continue
         command = _vf_command(preset)
-        hint = f"VF 滤镜 > {preset['label']}"
+        hint = f"VS 滤镜 > {preset['label']}"
         pad = " " * max(2, INPUT_CMD_COL - len(command))
         body.append(f" {preset['key']:<18}{command}{pad}#! {hint}")
     return body
@@ -279,7 +279,7 @@ def render_vpypar_input(vpypar: dict, enabled: bool) -> list[str]:
         return []
     command = f"script-binding {vpypar['target']}/menu"
     pad = " " * max(2, INPUT_CMD_COL - len(command))
-    return [f" {vpypar['key']:<18}{command}{pad}#! VF 滤镜 > 补帧参数"]
+    return [f" {vpypar['key']:<18}{command}{pad}#! 设置 > 补帧参数"]
 
 
 def render_vpypar_menu(vpypar: dict, enabled: bool) -> list[str]:
@@ -402,12 +402,12 @@ def check(stage: Path, pack: str | None = None) -> None:
     # 原生滤镜段只在装了引擎的包里出现
     menu_text = (cfg_root / MENU_NAME).read_text(encoding="utf-8")
 
-    # VF 预设区的标记必须缩进一层：标记在根层时，预设行会挂到隐藏标记底下，
-    # Windows 原生菜单把隐藏项的整棵子树丢掉，用户只看到 VF 滤镜 > 清空。
+    # VS 预设区的标记必须缩进一层：标记在根层时，预设行会挂到隐藏标记底下，
+    # Windows 原生菜单把隐藏项的整棵子树丢掉，用户只看到 VS 滤镜 > 清空。
     if render_menu(cfg["presets"], cfg["enable"]):
         indented = MENU_VF_INDENT + BEGIN + MENU_HIDDEN
         if indented not in menu_text.splitlines():
-            common.fail(f"portable_config/{MENU_NAME} 的 VF 标记行没有缩进一层"
+            common.fail(f"portable_config/{MENU_NAME} 的 VS 标记行没有缩进一层"
                         f"（应为 {indented!r}），预设会挂到隐藏项下而显示不出来")
     section = cfg["native"].get("section") or "原生滤镜 (&P)"
     if cfg["native_entries"] and section not in menu_text:
@@ -431,7 +431,7 @@ def check(stage: Path, pack: str | None = None) -> None:
     vpypar = cfg["vpypar"]
     if vpypar:
         if cfg["vpypar_on"] and vpypar["section"] not in menu_text:
-            common.fail(f"pack={cfg['name']} 缺少补帧参数段: {vpypar['section']}")
+            common.fail(f"pack={cfg['name']} 缺少设置段: {vpypar['section']}")
         if not cfg["vpypar_on"] and vpypar["section"] in menu_text:
             common.fail(f"pack={cfg['name']} 不该出现补帧参数段（没有会读 user-data 的预设）")
         input_text = (cfg_root / INPUT_NAME).read_text(encoding="utf-8")
