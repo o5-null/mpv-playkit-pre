@@ -679,3 +679,19 @@
   同时改 `menu.conf`、`build/config.py` 的位置注释与 `manifests/config.yml` 的注释；隐藏标记
   （`hidden=true`）行必须留在各自段的首尾，否则 `check()` 的标记区校验会失败。运行期
   `menu-data` 里隐藏标记显示为 `state={"hidden"}` 的 submenu 项，属正常现象。
+
+## 40. vs-mlrt 档移除，换成 vs-aji 完整版（2026-11-28）
+
+- **决策**：删除 `manifests/packs/vs-mlrt.yml` 与 `sources.lock.json` 里全部 `vs-mlrt/*` 锁项，
+  新增 `manifests/packs/vs-aji.yml`（`full: true`）。`vs-aji` = `vsdlssg` 的全部组件与预设
+  （四个帧生成插件 DLL、四套引擎运行时）+ aji 运行时与模型，不是只含 aji 的独立档。
+  `vsdlssg` 里原有的 `vsaji` 组件（`disable: true`）删除，避免两包各带一份。
+- **原因**：aji 的 RIFE / 超分 / 时序是当前主推的 NV 路径，而 vs-mlrt 的 TensorRT-RTX 方案
+  需要单独的 vsmlrt 插件、API4 移植轮子与六族模型，维护两套推理栈没有收益；用户要 aji 时
+  也不该再为凑齐四颗帧生成引擎去跨包拷目录。合成一个完整版后，两个交付包是
+  「默认档」与「默认档 + aji」，选包只按要不要 aji 决定。
+- **边界 / 代价**：`vs-aji` 约 750 MB，比原 `vs-mlrt` 大；K7sfunc 的 `CUGAN_NV` /
+  `DPIR_*_NV` / `ARTCNN_NV` / `RIFE_NV` / `DRBA_NV` 不再随包提供运行库与模型，
+  需要用户自备。`vsaji` 组件资产来自 vsaji 仓库的 `scripts/make-release.py` 产物
+  （zip 根下为 `aji/`，含依赖与 8 个模型），装到 `vs-plugins/aji/` 后再把
+  `vsaji.dll` 复制到 `Lib/site-packages/vapoursynth/plugins/`。

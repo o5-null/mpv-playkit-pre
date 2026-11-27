@@ -141,63 +141,53 @@ K7sfunc 的模型和 GPU 组件不在源码里。分三种情况：
 - **基础包自带**：`akarin`/`mvtools`/`fmtconv`/`zsmooth`/`bm3d`/`bwdif`/`vivtc`/`tivtc`/
   `vszip`/`znedi3` 这 10 个插件（来自 PyPI 的 API 4 轮子），落在
   `Lib/site-packages/vapoursynth/plugins/`，开箱即可用。
-- **`vs-mlrt` 包自带**：`vstrt_rtx.dll` + TensorRT-RTX 运行库 + 六族模型 + `onnx` 等
-  Python 依赖，装完 `CUGAN_NV` / `ARTCNN_NV` / `RIFE_NV` / `DRBA_NV` / `DPIR_DBLK_NV`
-  即可出帧（缺模型时 K7sfunc 会报"所请求的模型缺失"，不会黑屏）：
+- **旧的 `vs-mlrt` 档已移除**（2026-11-28 起由 `vs-aji` 取代）：`vsmlrt` 插件、TensorRT-RTX
+  运行库与 cugan / dpir / ArtCNN / RIFE / DRBA 等模型不再随包提供，K7sfunc 的
+  `CUGAN_NV` / `ARTCNN_NV` / `RIFE_NV` / `DRBA_NV` / `DPIR_DBLK_NV` 要自己补运行库和
+  模型才能用（缺模型时 K7sfunc 会报"所请求的模型缺失"，不会黑屏）。
+- **仍需自己放**：DPIR 去噪用的 `drunet_gray` / `drunet_color`（来自 `hooke007/dotfiles`
+  的 `mpv_addones`），以及 NGU 的 `madVR64.ax`：
 
 ```
-Lib/site-packages/vapoursynth/plugins/vsmlrt/
-├─ cugan/            cugan 3 个（pro-* / conservative 各 up2x）
-├─ dpir/             drunet deblocking 2 个（DPIR_DBLK_NV 的 model 2/3）
-├─ ArtCNN/           ArtCNN_R16F96 / R8F64 / R8F64_DS
-├─ rife/             RIFE 4.25 lite / 4.26 / 4.26 heavy / 4.6 / 4.6 ensemble
-├─ rife_v2/          同一组 RIFE（TRT 路径用这个目录）
-├─ drba/             distilDRBA v1 / v2_lite 四变体，fp32 与 fp16 各一套
-└─ *.onnx            5 个通用超分模型（HFA2kCompact / Ani4Kv2 / AnimeJaNai / Anime1080Fixer）
-```
-
-- **仍需自己放**：DPIR 去噪用的 `drunet_gray` / `drunet_color`（`dpir/` 目录，来自
-  `hooke007/dotfiles` 的 `mpv_addones`），以及 NGU 的 `madVR64.ax`：
-
-```
-Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/   # 可选：去噪模型
+Lib/site-packages/vapoursynth/plugins/vsmlrt/models/dpir/   # 自己补 vsmlrt 时的去噪模型
 vs-plugins/madVR/madVR64.ax                                 # NGU 相关
 ```
 
-- **vsaji（aji 插帧引擎）**：插件与运行时分开放，`rife_aji.dll` 进插件目录由 VS 自动加载，
-  其余是插件运行期 dlopen 的资源：
+- **`vs-aji` 档自带（aji 插帧引擎）**：插件与运行时同在一棵 `vs-plugins/aji/`，
+  `vsaji.dll` 另复制一份到 VS 插件目录由 R82+ 自动加载，其余是插件运行期 dlopen 的资源：
 
 ```
-Lib/site-packages/vapoursynth/plugins/rife_aji.dll
+Lib/site-packages/vapoursynth/plugins/vsaji.dll
 vs-plugins/aji/
-├─ aji.dll  aji_trt.dll  cudart64_13.dll  aji-runtime.json
-├─ trt/nvinfer_11.dll  trt/cudart64_13.dll   # 精简 TensorRT 运行时（必须完整，lean 只能建 IRuntime）
-├─ conf/rife_only_414.conf
-└─ rife/rife_v4.14.onnx
+├─ vsaji.dll  aji.dll  aji_trt.dll  aji_trtrtx.dll  aji_dml.dll  aji_vk.dll
+├─ cudart64_13.dll  aji-runtime.json
+├─ trt/nvinfer_11.dll  trt/cudart64_13.dll          # cudart 必须在这个子目录里
+├─ trtrtx/tensorrt_rtx_1_7.dll  trtrtx/tensorrt_onnxparser_rtx_1_7.dll  trtrtx/cudart64_13.dll
+├─ licenses/  conf/  rife/rife_v4.14.onnx
+└─ models/  4 个 AnimeJaNai 超分 + 3 个 temporalfix
 ```
 
-  即 vsaji 的 `dist/aji/` 整个目录给 `vs-plugins/aji/`，再把它的 `rife_aji.dll` 单独丢进插件目录。
+  即 vsaji 的 `dist/aji/` 整个目录给 `vs-plugins/aji/`，再把 `vsaji.dll` 单独复制进插件目录。
   `PLAYKIT_MEMC` 按插件自报的目录、同级/上级 `aji/`、`<包根>/vs-plugins/aji` 依次探测，
   另可用环境变量 `AJI_PLUGIN`（DLL 路径）、`AJI_DIR`（运行时目录）指定。
 
 其余模型的来源是 <https://github.com/hooke007/dotfiles/releases/tag/mpv_addones> 里的
-`vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208` 等）。包里那五族是从那份资产里挑出来的，
-另外也单独发在本仓库的 Release（tag `models-v1`，一族一个 zip），想只补某一族就从那里下。
+`vs-k7sfunc.*` 资产（`rife_std-core`、`mad.b208` 等）；旧 `vs-mlrt` 档的六族模型就是从中挑的，
+那时也单独发过 `models-v1`（一族一个 zip），构建已不再引用。
 
 ## 档位包与它的两个目录
 
 四个帧生成插件 DLL 在**所有档位**的基础包里（`vs-plugins/`，由 `MEMC_*.vpy` 首次使用时
-`LoadPlugin`）；TensorRT 推理插件、引擎包、模型由档位包（`manifests/packs/*.yml`）带上。
+`LoadPlugin`）；引擎包与 aji 运行时由档位包（`manifests/packs/*.yml`）带上。
 当前两个档位都是**全量包**（`full: true`），各自带完整播放器，落地时**只碰两个位置**：
 
 ```
 vs-plugins/                              # 资源：引擎包、模型、插件 DLL
 ├─ vdlssg.dll  vxessfg.dll  vvfg.dll  vfsr4.dll   # 帧生成插件（基础包自带）
-├─ dlss45/                              # DLSS-G 的 NGX 引擎包（vsdlssg 档）
-├─ xessfg/                              # XeSS-FG 的引擎包（vsdlssg 档）
-└─ tensorrt-rtx/                        # vs-mlrt 档的第三方说明/许可
+├─ dlss45/  xessfg/  vfg/  fsr4/        # 四颗帧生成引擎的运行时（vsdlssg / vs-aji）
+└─ aji/                                 # vs-aji 档：vsaji 插件 + libaji + 运行库 + conf + 8 模型
 Lib/site-packages/vapoursynth/plugins/   # 插件 DLL，由 VapourSynth 自动加载（含子目录）
-└─ vsmlrt/                              # vs-mlrt 档：vstrt_rtx.dll + vsmlrt-cuda/ 运行库 + models/
+└─ vsaji.dll                            # vs-aji 档：从 vs-plugins/aji/ 复制来的插件本体
 ```
 
 区别是**机制不同、不能合并**：
@@ -209,14 +199,14 @@ Lib/site-packages/vapoursynth/plugins/   # 插件 DLL，由 VapourSynth 自动�
   `<插件目录>\dlss45` 找引擎；`MEMC_DLSSG_NV.vpy` 因此按 `vs-plugins/bin/dlss45`、
   `vs-plugins/dlss45` 依次探测，再通过 `proxy_dir` 参数指过去。
 
-`vstrt_rtx.dll` 的 TRT 运行库必须与它同级放在 `vsmlrt-cuda/` 子目录里：插件用
-`dllDir()/vsmlrt-cuda/tensorrt_rtx_<主>_<次>.dll` 做延迟加载预取，放别处只会在第一次推理时
-报找不到 DLL。
+aji 的运行时由 dispatcher 在**自身目录**里找 `<stem>.dll`：`aji_trt.dll` 因此要求
+`trt\` 下同时有 `nvinfer_11.dll` 与 `cudart64_13.dll`，`aji_trtrtx.dll` 要求 `trtrtx\` 三件套齐全；
+后端 DLL 挪到别的子目录会在加载时报 error 126。
 
-想确认补丁包生效（不用开 mpv）：
+想确认包里的插件都能加载（不用开 mpv）：
 
 ```powershell
-./python -c "import vapoursynth as vs; print(vs.__version__, [n for n in ('vdlssg','vxessfg','vvfg','vfsr4','trt_rtx') if hasattr(vs.core, n)])"
+./python -c "import vapoursynth as vs; print(vs.__version__, [n for n in ('vdlssg','vxessfg','vvfg','vfsr4','vsaji') if hasattr(vs.core, n)])"
 ```
 
 

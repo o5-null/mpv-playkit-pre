@@ -32,7 +32,7 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 1. 解压 7z（7-Zip 或兼容工具），进入 `mpv-playkit-pre-<版本>-windows-x64/`；
 2. `mpv.exe` 直接播放。installer文件夹中提供了直接设为媒体文件默认打开方式的脚本
 
-> GPU 算法用的模型；`vsdlssg` 全量包自带4个vs插件和1个原生滤镜
+> GPU 算法用的模型；`vsdlssg` 全量包自带4个vs插件和1个原生滤镜，`vs-aji` 再加 aji 运行时与模型
 
 ## 两个全量包
 
@@ -40,20 +40,20 @@ Windows x64 便携版 mpv **预览包**：配置来自 [hooke007/mpv_PlayKit](ht
 
 | 包 | 内容 | 体积 | 需要的硬件 |
 | --- | --- | --- | --- |
-| `...-windows-x64-vsdlssg.7z`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / FSR-FG 四套引擎运行时（含 sm86 解锁）；aji 插帧暂缓 | ~338 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
-| `...-windows-x64-vs-mlrt.7z` | 完整播放器 + `vstrt_rtx` 插件（API4 移植）+ TensorRT-RTX 1.5 运行库 + cugan / dpir 去块模型 + 通用超分 / ArtCNN / RIFE / DRBA 模型 + onnx 等 Python 依赖 | ~681 MB | RTX 20 系及更新（Turing+），驱动 ≥ CUDA 12.9 |
+| `...-windows-x64-vsdlssg.7z`（**默认档**） | 完整播放器 + 四个帧生成插件 DLL + DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / FSR-FG 四套引擎运行时（含 sm86 解锁） | ~338 MB | NVIDIA RTX（帧生成建议 20/30 系以上） |
+| `...-windows-x64-vs-aji.7z`（**完整版**） | 完整播放器 + 四个帧生成插件 DLL 与四套引擎运行时（即 vsdlssg 档的全部内容）+ aji（AnimeJaNai libaji）插件：RIFE 补帧 / 2× 超分 / 时序处理 / 三层叠加，包内自带 TensorRT / TensorRT-RTX 运行库与 8 个超分 / 时序模型 | ~750 MB | NVIDIA RTX（aji 建议 20/30 系以上） |
 
 > 包是 `7z`（最高压缩率 LZMA2），需要 [7-Zip](https://www.7-zip.org/) 或兼容工具解压；
 > 解压后是 `mpv-playkit-pre-<版本>-windows-x64/` 这一个目录。
 
 - 两个包结构一致（`mpv.exe` + `portable_config/` + `Lib/` + `vs-plugins/` + `BUILD_INFO.json`），
-  只有 `vs-plugins/` 与 `Lib/site-packages/vapoursynth/plugins/` 的内容不同；`PACK_INFO.json`
-  记录了档位名与组件清单。
+  `vs-aji` 在 `vsdlssg` 的基础上多出 `vs-plugins/aji/` 与插件目录里的 `vsaji.dll`；
+  `PACK_INFO.json` 记录了档位名与组件清单。
 - 四个帧生成插件 DLL 在所有档位里都有（约 0.6 MB，落在 `vs-plugins/`，脚本首次使用时
   `LoadPlugin`）。
-- `vs-mlrt` 自带 cugan、dpir 去块、通用超分、ArtCNN、RIFE、DRBA 六类模型，
-  覆盖 K7sfunc 的 NV 算法；只有 dpir 的去噪两个（`drunet_gray` / `drunet_color`）需要自备：
-  见 `docs/TOOLKIT.md`。
+- `vs-aji` 自带 aji 运行时（`aji.dll` / `aji_trt.dll` / `aji_trtrtx.dll` + TensorRT 与
+  TensorRT-RTX 运行库）和 8 个模型：RIFE 4.14、4 个 AnimeJaNai 超分、3 个 temporalfix，
+  补帧 / 超分 / 时序都不用另下。原来的 `vs-mlrt` 档（vsmlrt 的 NV 算法与六族模型）已不再提供。
 
 
 ## 构建

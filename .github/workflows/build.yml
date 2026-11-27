@@ -72,7 +72,7 @@ jobs:
       - name: 校验全量包
         shell: bash
         run: |
-          for f in dist/out/*-windows-x64-vsdlssg.7z dist/out/*-windows-x64-vs-mlrt.7z; do
+          for f in dist/out/*-windows-x64-vsdlssg.7z dist/out/*-windows-x64-vs-aji.7z; do
             python -m build verify --pack --asset "$f"
           done
 
@@ -82,7 +82,7 @@ jobs:
           name: mpv-playkit-pre-windows-x64
           path: |
             dist/out/*-windows-x64-vsdlssg.7z
-            dist/out/*-windows-x64-vs-mlrt.7z
+            dist/out/*-windows-x64-vs-aji.7z
             dist/out/*.sha256
           if-no-files-found: error
           retention-days: 14

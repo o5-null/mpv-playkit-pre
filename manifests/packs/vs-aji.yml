@@ -1,0 +1,115 @@
+# 档位包：vs-aji —— 帧生成 + aji 全量包（完整版）
+#
+# 定位：**全量包**（full: true），内容是 **vsdlssg 档的全部 + aji**：
+# 自带完整播放器（自维护 mpv + Python + VapourSynth + K7sfunc 预设层），
+# 既有四个帧生成引擎（DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / AMD FSR4），
+# 又有 aji（AnimeJaNai libaji）的补帧 / 超分 / 时序运行时与模型，解压即用。
+#
+# 本档取代原来的 vs-mlrt 档：不再装 vs-mlrt（VapourSynth 的 TensorRT 推理插件）及其
+# onnx / numpy / 模型包等 Python 侧依赖，aji 把这些能力收进自己的发行 zip ——
+# 插件（vsaji.dll）、libaji（aji.dll）、TensorRT / TensorRT-RTX 运行库、conf 与
+# 8 个超分 / 时序模型都在同一个包里，运行时不需要额外装 Python 包。
+#
+# 启用 aji 的四个叠层预设（见 manifests/config.yml 的 packs.vs-aji）：
+#   aji_rife / aji_upscale / aji_tfix / aji_stack，全部走 vs/MIX_AJI.vpy，
+#   模型、后端、阈值、显卡等全局项由「设置 (&V)」面板（k7f_vpypar.lua）统一切换。
+#
+# 目录分工（不能合并）：
+#   vs-plugins/aji/                                  <- 插件 + libaji + 运行库 + conf + models + rife
+#   Lib/site-packages/vapoursynth/plugins/vsaji.dll  <- R82+ 自动加载（与上面同一份文件的副本）
+#   vs-plugins/dlss45|xessfg|vfg|fsr4                <- 帧生成引擎运行时（与 vsdlssg 档相同）
+
+schema: 1
+name: vs-aji
+title: 帧生成 + aji 全量包（完整版）
+full: true
+summary: >-
+  完整播放器（自维护 mpv + Python + VapourSynth + K7sfunc 预设层）再加 DLSS-G 4.5 /
+  XeSS-FG / NVIDIA VFG / AMD FSR4 四套帧生成引擎，以及 aji（AnimeJaNai libaji）的
+  RIFE 补帧、2× 超分、时序处理与三层叠加。包内自带 TensorRT / TensorRT-RTX 依赖与
+  8 个超分 / 时序模型，解压即用。
+
+components:
+  # 与 vsdlssg 档相同的合并 zip（四个 DLL 由基础包的 `vs-framegen-dlls` 负责，
+  # 这里只要四棵运行时目录；同一个资产按 sha256 共用一份下载）。
+  # 注意 dlssg_sm86/logs/.gitkeep 不能丢：日志目录不存在时引擎会静默失败。
+  - id: engine-framegen
+    kind: archive
+    summary: 帧生成引擎运行时（DLSS-G 4.5 / XeSS-FG / NVIDIA VFG / AMD FSR4）
+    upstream: o5-null/vs-framegen
+    license: MIT
+    extract: zip
+    install_to: .
+    include:
+      - vs-plugins/dlss45
+      - vs-plugins/xessfg
+      - vs-plugins/vfg
+      - vs-plugins/fsr4
+    provides:
+      - vs-plugins/dlss45/dlssg2f.exe
+      - vs-plugins/dlss45/dlssg_sm86.ini
+      - vs-plugins/dlss45/version.dll
+      - vs-plugins/dlss45/dlssg_sm86/logs/.gitkeep
+      - vs-plugins/dlss45/dlssg_sm86/runtime/nvngx_dlssg.dll
+      - vs-plugins/xessfg/dlssg2f.exe
+      - vs-plugins/xessfg/version.dll
+      - vs-plugins/xessfg/dlssg_sm86/logs/.gitkeep
+      - vs-plugins/xessfg/dlssg_sm86/runtime/nvngx_dlssg.dll
+      - vs-plugins/vfg/nvVFXVideoFrameGeneration.dll
+      - vs-plugins/vfg/NVVideoEffects.dll
+      - vs-plugins/vfg/cudart64_12.dll
+      - vs-plugins/fsr4/amd_fidelityfx_framegeneration_dx12.dll
+      - vs-plugins/fsr4/smv_fsrfg_bridge.dll
+      - vs-plugins/fsr4/smv_vkd3d_d3d12.dll
+
+  # aji 发行包（o5-null/vsaji 的 release，`vsaji\scripts\make-release.py` 产出）：
+  # zip 根下是 aji/，内部扁平布局 —— vsaji.dll 与 aji.dll / aji_trt.dll / trt/ 同层，
+  # 模型在 models/ 与 rife/，conf 在 conf/，TensorRT-RTX 的许可文本在 licenses/。
+  # 整棵 aji/ 落到 vs-plugins/aji/；插件再复制一份到 vapoursynth/plugins/ 让 R82+
+  # 自动加载（插件按 Version()["aji"] 与同级 aji/ 找运行时装，DECISIONS 17）。
+  - id: vsaji
+    kind: archive
+    summary: aji（AnimeJaNai libaji）插件、运行时依赖与模型
+    upstream: o5-null/vsaji
+    license: GPL-3.0-or-later
+    extract: zip
+    install_to: vs-plugins
+    copies:
+      - source: vs-plugins/aji/vsaji.dll
+        target: Lib/site-packages/vapoursynth/plugins/vsaji.dll
+    provides:
+      - Lib/site-packages/vapoursynth/plugins/vsaji.dll
+      # 插件与 libaji
+      - vs-plugins/aji/vsaji.dll
+      - vs-plugins/aji/aji.dll
+      - vs-plugins/aji/aji_trt.dll
+      - vs-plugins/aji/aji_trtrtx.dll
+      - vs-plugins/aji/aji_dml.dll
+      - vs-plugins/aji/aji_vk.dll
+      - vs-plugins/aji/cudart64_13.dll
+      - vs-plugins/aji/aji-runtime.json
+      # TensorRT / TensorRT-RTX 运行库（cudart 必须在 trt\ 内）
+      - vs-plugins/aji/trt/nvinfer_11.dll
+      - vs-plugins/aji/trt/cudart64_13.dll
+      - vs-plugins/aji/trtrtx/tensorrt_rtx_1_7.dll
+      - vs-plugins/aji/trtrtx/tensorrt_onnxparser_rtx_1_7.dll
+      - vs-plugins/aji/trtrtx/cudart64_13.dll
+      # 许可文本
+      - vs-plugins/aji/licenses/TensorRT-RTX-Acknowledgements.txt
+      - vs-plugins/aji/licenses/TensorRT-RTX-NOTICE.txt
+      # 预设用的 conf（k7 生成临时 conf 时以这些为模板）
+      - vs-plugins/aji/conf/rife_only_414.conf
+      - vs-plugins/aji/conf/tfix_temporalfix_s1_v1.1_op18_fp16.conf
+      - vs-plugins/aji/conf/upscale_2x_AnimeJaNai_HD_V3.1_Performance_SPANF3_b5f48_unshuffle_fp16.conf
+      # 补帧模型
+      - vs-plugins/aji/rife/rife_v4.14.onnx
+      # 超分 / 时序模型
+      - vs-plugins/aji/models/2x_AnimeJaNai_HD_V3.1_Balanced_SPANF3_b8f64_unshuffle_fp16.onnx
+      - vs-plugins/aji/models/2x_AnimeJaNai_HD_V3.1_Performance_SPANF3_b5f48_unshuffle_fp16.onnx
+      - vs-plugins/aji/models/2x_AnimeJaNai_HD_V3.1Sharp1_Balanced_SPANF3_b8f64_unshuffle_fp16.onnx
+      - vs-plugins/aji/models/2x_AnimeJaNai_HD_V3.1Sharp1_Performance_SPANF3_b5f48_unshuffle_fp16.onnx
+      - vs-plugins/aji/models/2x_AnimeJaNai_SD_V1beta34_Compact_1x3xHxW_dyn-HW_strong_fp16_op21_dynamo.onnx
+      - vs-plugins/aji/models/temporalfix_s1_v1.1_op18_fp16.onnx
+      - vs-plugins/aji/models/temporalfix_s2_v1_op18_fp16.onnx
+      - vs-plugins/aji/models/temporalfix_s3_v1_op18_fp16.onnx
+      - vs-plugins/aji/models/vs_temporalfix_LICENSE.txt

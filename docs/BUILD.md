@@ -104,7 +104,7 @@ CI 里用 `PLAYKIT_VERSION`。
 
 `ci` / `all` / `pack` 都不会删除 stage：打包只是从 stage 读文件，结束后目录原样留着，
 可以直接跑 `dist\stage\<包名>\mpv.exe` 验证，不必先解 7z。档位包的 stage
-（`-vsdlssg` / `-vs-mlrt`）已经叠好本档组件，最接近用户拿到的包。
+（`-vsdlssg` / `-vs-aji`）已经叠好本档组件，最接近用户拿到的包。
 
 - 同名重建会先删掉旧 stage 再重装（`build/pack.py:176`、`build/assemble.py:356`）；
 - 提交哈希变了目录名就变了，旧 stage 会一直堆着（单个 0.6–1.7 GB），
@@ -145,8 +145,8 @@ packs:
     enable: [mvt_lq]
   vsdlssg:
     enable: [mvt_lq, dlssg, xessfg, vfg, fsr4]
-  vs-mlrt:
-    enable: [mvt_lq, rife_nv, drba_nv, uai_nv_trt]
+  vs-aji:
+    enable: [mvt_lq, dlssg, xessfg, vfg, fsr4, aji_rife, aji_upscale, aji_tfix, aji_stack]
 ```
 
 `build/config.py` 对 stage 做三件事：
@@ -265,8 +265,8 @@ python -m build verify --pack --asset ..\dist\<pack>.7z           # 校验产物
 
 | 包 | 形态 | 定位 | 内容 |
 | --- | --- | --- | --- |
-| `vsdlssg` | 全量（`full: true`，`default: true`） | 默认档 | 基础包 + `vs-plugins/dlss45`、`vs-plugins/xessfg` 引擎；aji 暂停（`disable: true`） |
-| `vs-mlrt` | 全量（`full: true`） | 可选推理档 | 基础包 + `vsmlrt` 插件（TRT-RTX）、运行库、六族模型、onnx 依赖 |
+| `vsdlssg` | 全量（`full: true`，`default: true`） | 默认档 | 基础包 + `vs-plugins/dlss45`、`vs-plugins/xessfg` 等四套引擎运行时 |
+| `vs-aji` | 全量（`full: true`） | 完整版 | `vsdlssg` 的全部内容 + `vs-plugins/aji`（vsaji 插件、libaji、TensorRT / TensorRT-RTX 运行库、conf、8 个模型） |
 
 `default: true` 的是**默认档**（最多一个，`common.default_pack()` 会校验），值也会写进
 `PACK_INFO.json`。四个帧生成插件 DLL（`vdlssg` / `vxessfg` / `vvfg` / `vfsr4`）在**基础包**里，
@@ -302,7 +302,7 @@ PACK_INFO.json                             包名、组件清单、lock_digest
 
 `.github/workflows/build.yml`：每日定时 / 手动 / PR → fetch → assemble → smoke → verify
 → 打两个全量档位包并逐个校验 → 上传单个 artifact `mpv-playkit-pre-windows-x64`
-（含 `*-vsdlssg.7z`、`*-vs-mlrt.7z` 及各自 `.sha256`，14 天）。**故意不发布 release、不推 tag**，产物只走 artifact。
+（含 `*-vsdlssg.7z`、`*-vs-aji.7z` 及各自 `.sha256`，14 天）。**故意不发布 release、不推 tag**，产物只走 artifact。
 不 push 触发：本地全绿再推，避免每次推送失败都刷一封信。
 
 `.github/workflows/sync-upstream.yml`：每天 UTC 03:00 跑 `python -m build sync`

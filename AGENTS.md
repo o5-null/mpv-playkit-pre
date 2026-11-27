@@ -80,14 +80,14 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
    `native` 段生成 `menu.conf` 里紧跟"VS 滤镜"、在"着色器"之前的原生滤镜块（目前是 `playkit` 滤镜的
    DLSS 帧生成，倍率跟随「倍数」菜单），只有列出的档位包才出现——没有引擎的包宁可整段没有，也不留点不动的项。
    `packs.base` 是中间基础 stage 的配置（`assemble` / `smoke` / `verify` 不带 `--pack` 时用它），
-   只放 mpv + k7sfunc 基础依赖就能跑的预设，不是交付物；用户拿到的是 `vsdlssg` / `vs-mlrt` 两个包。
+   只放 mpv + k7sfunc 基础依赖就能跑的预设，不是交付物；用户拿到的是 `vsdlssg` / `vs-aji` 两个包。
    算法/前端功能仍写进 K7sfunc fork（`o5-null/K7sfunc`），本仓库只按 commit 钉它。
 2. **不手改 `sources.lock.json`**，用 `build.pin`；`components.yml` 里不要出现版本号（规则/版本分离）。
 3. **二进制不入库**：`.work/`、`dist/`、`*.7z`、`*.zip` 都在 gitignore；`portable_config/` 必须入库。
 4. `git-tree` 组件（k7sfunc）按 `paths` 白名单复制——fork 里新增的文件要同步加映射才会进包。
 5. CI 不在 push 触发（schedule / workflow_dispatch / pull_request），push 不会替你验证。
 6. **档位包分两种形态**：`full: true` 是全量包（自带基础包，产物同构于基础包 zip，当前两个档位
-   vsdlssg / vs-mlrt 都是这种）；不带 `full` 的补丁包只许放 `Lib/site-packages/vapoursynth/plugins/**`、
+   vsdlssg / vs-aji 都是这种）；不带 `full` 的补丁包只许放 `Lib/site-packages/vapoursynth/plugins/**`、
    `Lib/site-packages/` 下的纯 Python 包（补丁包自己的运行依赖，如 onnx/numpy）、
    `vs-plugins/**`、`portable_config/**`、`PACK_INFO.json`（配置不同就放进补丁包，解压直接覆盖）；
    补丁包禁止 `mpv.exe`、`python.exe`、`vsscript.dll`、`vapoursynth.pyd`、`k7sfunc/`、`vapoursynth/` 本体等——覆盖式解压写错就毁基础包。
@@ -105,7 +105,7 @@ python -m build.pin --pack <pack> --id <id> --url <url>   # 拓展包组件的 p
 - 配置清单里"未启用"的预设不是删掉，但也不是写成 `#` 注释：`select.lua` 不认注释，每行都会变成菜单项。`menu.conf` 里未启用的预设保留命令并加 `disabled=true`（灰显不可点，标题写明缺什么），标记行加 `hidden=true`；`input_uosc.conf` 是按键表，注释安全，才用 `#`。vpy 会被真正裁掉。新增预设要同时想清楚 `requires` 写什么。
 - 原生滤镜（`playkit`）只吃 D3D11 硬件帧：`hwdec=auto-copy` 时它静默直通（没有 2×、也不报错），所以清单生成的命令是 `set hwdec d3d11va; vf set playkit:...`；反过来 VS 预设命令带 `set hwdec auto-copy` 前缀，避免用过原生滤镜后 `vf=vapoursynth` 吃到 D3D11 帧。
 - VS 插件只有放 `Lib/site-packages/vapoursynth/plugins/`（含子目录）才会被自动加载；`vs-plugins/` 里放 DLL 不生效。
-- VS R80 起不支持 API 3 插件：`vs-mlrt` 官方二进制全是 API 3，R82 直接拒绝，要用 API4 移植轮子（见 DECISIONS 第 11 条）。
+- VS R80 起不支持 API 3 插件：旧的 `vs-mlrt` 官方二进制全是 API 3，R82 直接拒绝，当年要用 API4 移植轮子（DECISIONS 11）；该档已于 2026-11-28 由 `vs-aji` 取代。
 - 版本号 = `VERSION` + 提交短哈希，CI 可用 `PLAYKIT_VERSION` 覆盖；产物名统一带 `pre`（预览分支不保证兼容）。
 
 ## 约定
